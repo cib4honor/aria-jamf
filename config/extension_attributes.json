@@ -1,0 +1,30 @@
+{
+  "_comment": "Map ARIA's display labels to your exact Jamf extension attribute names. Remove or add sections as needed.",
+
+  "last_user_network": {
+    "last_login_user": "Last User to login",
+    "network_interface": "Network Interface Details"
+  },
+
+  "super": {
+    "compliant": "SUPER Compliant",
+    "status": "SUPER status",
+    "last_run": "Last Super Run",
+    "version": "SUPER version",
+    "hard_deadline_hours": "SUPER(hard) - Hours to Deadline",
+    "soft_deadline_hours": "SUPER(soft) - Hours to Deadline",
+    "deferral_count": "number of times the user has deferred the Deadline Focus, S.U.P.E.R.M.A.N"
+  },
+
+  "jamf_connect": {
+    "version": "Jamf Connect Version",
+    "display_name": "Jamf Connect - DisplayName",
+    "user_count": "Jamf Connect Users"
+  },
+
+  "security": {
+    "jamf_protect": "Jamf Protect - Smart Groups",
+    "guest_account": "OS - Guest Account Disabled",
+    "chrome_update": "Update Chrome"
+  }
+}

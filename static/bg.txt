@@ -1,0 +1,8 @@
+Add your own background image here as bg.jpg.
+
+Recommended: a landscape photo relevant to your organization.
+Dimensions: 1600x1200 or larger. JPEG format.
+
+ARIA darkens and overlays it automatically so the login card stays readable.
+
+This file is excluded from git via .gitignore — each installation uses their own image.

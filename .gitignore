@@ -1,0 +1,13 @@
+.env
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pem
+*.key
+handoff_log.json
+aria-cert.pem
+aria-key.pem
+static/bg.jpg
+*.log
+.DS_Store

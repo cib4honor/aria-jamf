@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bob's Jamf Pro Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#060d08;--bg1:#080f0a;--bg2:#0d1f12;--bg3:#111b15;--bg4:#0a1a0f;
+  --border:#1a2e20;--border2:#166534;
+  --green:#4ade80;--green2:#86efac;--green3:#d1fae5;--green4:#16a34a;
+  --text:#e2f5e9;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+  --red:#f87171;--amber:#fbbf24;
+}
+html,body{height:100%;background:var(--bg0);color:var(--text);font-family:var(--sans)}
+body{display:flex;flex-direction:column}
+#setup{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px;position:relative;overflow:hidden;min-height:100vh}
+.bg-photo{position:absolute;inset:0;background:url('/static/bg.jpg') center center/cover no-repeat;filter:brightness(0.35) saturate(0.8);will-change:transform;transform:translateZ(0)}
+.bg-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,13,8,.3) 0%,rgba(6,13,8,.7) 60%,rgba(6,13,8,.95) 100%);pointer-events:none}
+#setup-card{position:relative;width:100%;max-width:440px;z-index:1}
+.pill-badge{display:inline-flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 20px;margin-bottom:20px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);flex-shrink:0}
+.dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}
+.pill-badge span{font-family:var(--mono);font-size:12px;color:var(--green2);letter-spacing:.12em}
+h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.5px}
+.subtitle{color:rgba(74,222,128,.6);font-size:14px;margin-bottom:32px}
+.field{margin-bottom:14px}
+.field-label{display:block;color:var(--green2);font-size:11px;letter-spacing:.1em;margin-bottom:6px;font-family:var(--mono)}
+.field-label span{color:rgba(74,222,128,.35)}
+select,input[type=text],textarea{width:100%;padding:10px 14px;border-radius:8px;background:var(--bg2);border:1px solid var(--border2);color:var(--green3);font-size:14px;font-family:var(--sans);transition:border-color .15s;appearance:none}
+select{cursor:pointer}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!important;box-shadow:0 0 0 2px rgba(74,222,128,.12)}
+#btn-start{width:100%;margin-top:8px;padding:13px 0;border-radius:10px;border:none;background:var(--green4);color:#f0fdf4;font-size:15px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+#btn-start:disabled{background:#1a2e20;color:rgba(74,222,128,.2);cursor:default}
+.setup-note{color:rgba(74,222,128,.2);font-size:12px;text-align:center;margin-top:20px;font-family:var(--mono)}
+.setup-row{display:flex;gap:10px}
+.setup-row .field{flex:1}
+</style>
+<style>
+#chat{flex:1;display:none;flex-direction:column;overflow:hidden}
+#chat-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg1);flex-shrink:0;gap:8px}
+#header-left{display:flex;align-items:center;gap:8px;flex-shrink:0}
+#header-center{display:flex;align-items:center;gap:6px;flex:1;justify-content:center}
+#header-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.hbtn{background:none;border:1px solid var(--border);color:rgba(74,222,128,.5);font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:var(--mono);white-space:nowrap;transition:all .15s}
+.hbtn:hover{border-color:var(--border2);color:var(--green2)}
+.hbtn.accent{background:rgba(74,222,128,.08);border-color:var(--border2);color:var(--green2)}
+#lookup-input{padding:4px 10px;border-radius:6px;background:var(--bg2);border:1px solid var(--border2);color:var(--green3);font-size:11px;font-family:var(--mono);width:150px}
+#chat-body{display:flex;flex:1;overflow:hidden}
+#device-panel{width:260px;flex-shrink:0;border-right:1px solid var(--border);display:none;flex-direction:column;background:var(--bg0)}
+#device-panel.visible{display:flex}
+#fleet-panel{width:260px;flex-shrink:0;border-right:1px solid var(--border);display:none;flex-direction:column;background:var(--bg0)}
+.panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.ptab{flex:1;padding:8px 4px;font-size:11px;font-family:var(--mono);color:rgba(74,222,128,.4);cursor:pointer;text-align:center;border-bottom:2px solid transparent;transition:all .15s}
+.ptab.active{color:var(--green);border-bottom-color:var(--green)}
+.panel-body{flex:1;overflow-y:auto;padding:12px}
+.panel-body::-webkit-scrollbar{width:3px}
+.panel-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.panel-title{font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);letter-spacing:.1em;margin-bottom:10px}
+.device-name{font-family:var(--mono);color:var(--green);font-size:13px;font-weight:700;margin-bottom:1px}
+.device-user{color:rgba(74,222,128,.4);font-size:11px;margin-bottom:10px}
+.stale-warn{background:#1a1200;border:1px solid #92400e;border-radius:6px;padding:7px 10px;color:var(--amber);font-size:11px;margin-bottom:10px}
+.drow{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);align-items:center}
+.dk{color:rgba(74,222,128,.4);font-size:11px}
+.dv{color:var(--green3);text-align:right;font-family:var(--mono);font-size:11px;word-break:break-all}
+.dv.warn{color:var(--red)}
+.dv.ok{color:var(--green)}
+.dv.caution{color:var(--amber)}
+.ea-section{margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
+.ea-title{font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.3);letter-spacing:.08em;margin-bottom:6px}
+.action-row{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
+.action-btn{flex:1;min-width:60px;padding:6px 4px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--green2);font-size:10px;font-family:var(--mono);cursor:pointer;transition:all .15s;text-align:center}
+.action-btn:hover{background:#14532d;color:var(--green3)}
+.action-btn.danger{border-color:#7f1d1d;background:#1a0a0a;color:var(--red)}
+</style>
+<style>
+.policy-entry{padding:7px 0;border-bottom:1px solid var(--border);font-size:11px}
+.policy-name{color:var(--green3);margin-bottom:2px;line-height:1.3}
+.policy-meta{display:flex;justify-content:space-between;align-items:center}
+.policy-status{font-family:var(--mono);font-size:10px}
+.policy-status.pass{color:var(--green)}
+.policy-status.fail{color:var(--red)}
+.policy-status.pending{color:var(--amber)}
+.policy-date{color:rgba(74,222,128,.3);font-size:10px;font-family:var(--mono)}
+.log-entry{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;font-size:12px}
+.log-entry-header{display:flex;justify-content:space-between;margin-bottom:4px}
+.log-tech{color:var(--green);font-family:var(--mono);font-size:11px;font-weight:700}
+.log-time{color:rgba(74,222,128,.3);font-size:10px;font-family:var(--mono)}
+.log-text{color:var(--green3);line-height:1.5;font-size:11px}
+.log-device{color:rgba(74,222,128,.4);font-family:var(--mono);font-size:10px;margin-top:4px}
+#log-add{width:100%;margin-top:8px}
+#log-add textarea{font-size:12px;min-height:64px;resize:none}
+#log-add-btn{width:100%;margin-top:6px;padding:8px;border-radius:8px;border:none;background:var(--green4);color:#f0fdf4;font-size:12px;cursor:pointer;font-family:var(--sans)}
+#chat-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#messages{flex:1;overflow-y:auto;padding:20px 16px 8px;display:flex;flex-direction:column}
+#messages::-webkit-scrollbar{width:4px}
+#messages::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+#empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
+.empty-icon{font-size:28px;color:var(--green);margin-bottom:12px}
+#empty-state p{color:rgba(74,222,128,.4);font-size:14px;margin-bottom:20px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chip{background:var(--bg2);border:1px solid var(--border2);color:var(--green2);padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.chip:hover{background:#14532d;border-color:var(--green);color:var(--green3)}
+.msg-wrap{display:flex;gap:10px;margin-bottom:18px;align-items:flex-start;animation:fadeIn .2s ease}
+.msg-wrap.user{flex-direction:row-reverse}
+.avatar{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:var(--mono)}
+.avatar.tech{background:#1e3a2f;border:1.5px solid var(--green);color:var(--green)}
+.avatar.ai{background:#0f1f17;border:1.5px solid rgba(34,197,94,.27);color:var(--green2)}
+.bubble{max-width:78%;padding:12px 16px;font-size:14px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.bubble.user{background:#0d2218;border:1px solid var(--border2);border-radius:16px 4px 16px 16px;color:var(--green3)}
+.bubble.ai{background:var(--bg3);border:1px solid var(--border);border-radius:4px 16px 16px 16px;color:var(--text)}
+.typing-wrap{display:flex;gap:10px;align-items:center;margin-bottom:18px}
+.typing-bubble{background:var(--bg3);border:1px solid var(--border);border-radius:4px 16px 16px 16px;padding:12px 16px;display:flex;gap:5px;align-items:center}
+.tdot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.2s ease-in-out infinite}
+.tdot:nth-child(2){animation-delay:.2s}
+.tdot:nth-child(3){animation-delay:.4s}
+.error-bar{background:#1a0a0a;border:1px solid #7f1d1d;border-radius:8px;padding:10px 14px;color:var(--red);font-size:13px;margin:8px 0}
+#chat-input-area{padding:12px 16px;border-top:1px solid var(--border);background:var(--bg1);flex-shrink:0}
+#input-row{display:flex;gap:10px;align-items:flex-end}
+#msg-input{flex:1;padding:11px 14px;border-radius:10px;resize:none;background:var(--bg2);border:1px solid var(--border2);color:var(--green3);font-size:14px;font-family:var(--sans);line-height:1.5;min-height:44px;max-height:120px;overflow:auto;transition:border-color .15s}
+#msg-input::placeholder{color:rgba(74,222,128,.2)}
+#btn-send{width:44px;height:44px;border-radius:10px;border:none;flex-shrink:0;background:var(--green4);color:#f0fdf4;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#btn-send:disabled{background:#1a2e20;color:rgba(74,222,128,.15);cursor:default}
+#input-hint{color:rgba(74,222,128,.15);font-size:11px;text-align:center;margin-top:6px;font-family:var(--mono)}
+.device-pick{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.device-pick:hover{border-color:var(--border2);background:var(--bg3)}
+.device-pick-name{color:var(--green);font-family:var(--mono);font-size:12px;font-weight:700}
+.device-pick-meta{color:rgba(74,222,128,.4);font-size:11px;margin-top:2px}
+.fleet-query-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--green2);font-size:12px;font-family:var(--mono);cursor:pointer;transition:all .15s;margin-bottom:6px;text-align:left}
+.fleet-query-btn:hover{border-color:var(--border2);background:var(--bg3);color:var(--green3)}
+.fq-count{background:var(--bg0);border:1px solid var(--border2);color:var(--green);font-size:10px;padding:2px 7px;border-radius:10px;font-family:var(--mono)}
+.fq-count.warn{border-color:#7f1d1d;color:var(--red)}
+.fq-count.caution{border-color:#92400e;color:var(--amber)}
+.fleet-result{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);margin-bottom:5px;cursor:pointer;transition:all .15s;font-size:11px;gap:8px}
+.fleet-result:hover{border-color:var(--border2);background:var(--bg3)}
+.fr-name{color:var(--green);font-family:var(--mono);font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.fr-meta{color:rgba(74,222,128,.4);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fr-badge{font-size:10px;font-family:var(--mono);flex-shrink:0;padding:2px 6px;border-radius:4px}
+.fr-badge.red{color:var(--red);background:#1a0a0a;border:1px solid #7f1d1d}
+.fr-badge.amber{color:var(--amber);background:#1a1200;border:1px solid #92400e}
+.fr-badge.green{color:var(--green);background:#0a1a0f;border:1px solid var(--border2)}
+.fleet-back{background:none;border:none;color:rgba(74,222,128,.5);font-size:11px;font-family:var(--mono);cursor:pointer;padding:0 0 10px;display:block}
+.fleet-back:hover{color:var(--green2)}
+.site-btn{display:inline-block;margin:3px;padding:5px 10px;border-radius:14px;border:1px solid var(--border);background:var(--bg2);color:var(--green2);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .15s}
+.site-btn:hover{border-color:var(--border2);color:var(--green3)}
+/* ── Summary modal ── */
+#summary-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+#summary-modal.visible{display:flex}
+#summary-box{background:var(--bg1);border:1px solid var(--border2);border-radius:14px;width:100%;max-width:620px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+#summary-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#summary-title{font-family:var(--mono);font-size:13px;color:var(--green);font-weight:700}
+#summary-close{background:none;border:none;color:rgba(74,222,128,.4);font-size:18px;cursor:pointer;padding:0;line-height:1}
+#summary-close:hover{color:var(--green)}
+#summary-body{padding:20px;overflow-y:auto;flex:1}
+#summary-generating{color:rgba(74,222,128,.4);font-size:13px;text-align:center;padding:30px;font-family:var(--mono)}
+#summary-content{display:none}
+.summary-device-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px}
+.summary-device-row{display:flex;justify-content:space-between;padding:3px 0;font-family:var(--mono)}
+.summary-device-key{color:rgba(74,222,128,.4)}
+.summary-device-val{color:var(--green3)}
+.summary-ai-text{background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--text);font-size:13px;line-height:1.7;white-space:pre-wrap;margin-bottom:16px}
+#summary-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0}
+.summary-action-btn{flex:1;padding:10px;border-radius:8px;border:none;font-size:13px;font-family:var(--sans);cursor:pointer;font-weight:600;transition:all .15s}
+.summary-action-btn.primary{background:var(--green4);color:#f0fdf4}
+.summary-action-btn.primary:hover{background:#15803d}
+.summary-action-btn.secondary{background:var(--bg2);border:1px solid var(--border2);color:var(--green2)}
+.summary-action-btn.secondary:hover{background:var(--bg3)}
+</style>
+</head>
+<body>
+<!-- SETUP -->
+<div id="setup">
+  <div class="bg-photo"></div>
+  <div class="bg-overlay"></div>
+  <div id="setup-card">
+    <div style="text-align:center;margin-bottom:32px">
+      <div class="pill-badge"><div class="dot" id="backend-dot"></div><span id="backend-text">ARIA v3.0 · TRSD</span></div>
+      <h1>Bob's Jamf Pro Assistant</h1>
+      <p class="subtitle">Automated Resolution &amp; Incident Assistant</p>
+    </div>
+    <div class="field">
+      <label class="field-label">YOUR NAME</label>
+      <select id="sel-tech">
+        <option value="">Select your name...</option>
+      </select>
+    </div>
+    <div class="setup-row">
+      <div class="field">
+        <label class="field-label">DEVICE SERIAL <span>(optional)</span></label>
+        <input type="text" id="setup-serial" placeholder="C02XK1JVMD6M" maxlength="20">
+      </div>
+      <div class="field">
+        <label class="field-label">OR USERNAME <span>(optional)</span></label>
+        <input type="text" id="setup-user" placeholder="first.last">
+      </div>
+    </div>
+    <button id="btn-start" disabled>Start Session →</button>
+    <p class="setup-note" id="setup-note">Checking backend connection...</p>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div id="chat">
+  <div id="chat-header">
+    <div id="header-left">
+      <div class="dot" id="status-dot"></div>
+      <span id="header-label" style="font-family:var(--mono);font-size:12px;color:var(--green2);letter-spacing:.1em">ARIA</span>
+      <span style="color:rgba(74,222,128,.25);font-size:11px">● live jamf</span>
+    </div>
+    <div id="header-center">
+      <input type="text" id="lookup-input" placeholder="Serial or username..." maxlength="40" style="width:180px">
+      <button class="hbtn" id="btn-lookup">Look up</button>
+    </div>
+    <div id="header-right">
+      <button class="hbtn accent" id="btn-summary" onclick="copySummary()">📋 Summary</button>
+      <button class="hbtn" id="btn-fleet">🖥 Fleet</button>
+      <button class="hbtn" id="btn-home">⌂</button>
+      <button class="hbtn" id="btn-switch">⇄</button>
+    </div>
+  </div>
+  <div id="chat-body">
+    <!-- Device Panel -->
+    <div id="device-panel">
+      <div class="panel-tabs">
+        <div class="ptab active" data-tab="info" onclick="switchTab('info')">INFO</div>
+        <div class="ptab" data-tab="policies" onclick="switchTab('policies')">POLICIES</div>
+        <div class="ptab" data-tab="log" onclick="switchTab('log')">LOG</div>
+      </div>
+      <div class="panel-body" id="tab-info"><div id="device-content"><div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:20px">Enter a serial or username above</div></div></div>
+      <div class="panel-body" id="tab-policies" style="display:none"><div class="panel-title">RECENT POLICIES</div><div id="policies-content"><div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:20px">No device selected</div></div></div>
+      <div class="panel-body" id="tab-log" style="display:none">
+        <div class="panel-title">SHIFT HANDOFF LOG</div>
+        <div id="log-content"></div>
+        <div id="log-add"><textarea id="log-note" placeholder="Add a note for the next shift..."></textarea><button id="log-add-btn" onclick="addLogEntry()">Add Note</button></div>
+      </div>
+    </div>
+    <!-- Fleet Panel -->
+    <div id="fleet-panel">
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);letter-spacing:.1em">FLEET QUERIES</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="fleet-cache-label" style="font-family:var(--mono);font-size:9px;color:rgba(74,222,128,.2)"></span>
+          <button onclick="closeFleet()" style="background:none;border:none;color:rgba(74,222,128,.3);font-size:16px;cursor:pointer;padding:0;line-height:1" title="Close fleet panel">✕</button>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:12px"><div id="fleet-content"></div></div>
+    </div>
+    <!-- Chat Main -->
+    <div id="chat-main">
+      <div id="messages">
+        <div id="empty-state">
+          <div class="empty-icon">⌘</div>
+          <p id="greeting">What are we fixing today?</p>
+          <div class="chips">
+            <span class="chip" onclick="chipClick(this)">Mac won't check into Jamf</span>
+            <span class="chip" onclick="chipClick(this)">Policy keeps failing</span>
+            <span class="chip" onclick="chipClick(this)">Printer disappeared</span>
+            <span class="chip" onclick="chipClick(this)">SUPER not running</span>
+            <span class="chip" onclick="chipClick(this)">ConnectWise won't connect</span>
+            <span class="chip" onclick="chipClick(this)">FileVault issue</span>
+            <span class="chip" onclick="chipClick(this)">Jamf Connect login loop</span>
+            <span class="chip" onclick="chipClick(this)">Device stale in Jamf</span>
+          </div>
+        </div>
+      </div>
+      <div id="chat-input-area">
+        <div id="input-row">
+          <textarea id="msg-input" rows="1" placeholder="Describe the issue..."></textarea>
+          <button id="btn-send" disabled>↑</button>
+        </div>
+        <p id="input-hint">Enter to send · Shift+Enter for new line</p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const SYSTEM_PROMPT="";  // Loaded from config/system_prompt.txt via backend
+const ARIA_KEY=window._ARIA_KEY||"";  // Set by backend at page load
+let techName="",messages=[],deviceData=null,loading=false,fleetOpen=false,fleetSites=[];
+
+// ── Backend check + load config
+let _ariaConfig = {};
+async function checkBackend(){
+  try{
+    const r=await fetch("/health",{signal:AbortSignal.timeout(3000)});
+    const d=await r.json();
+    if(d.status==="ok"){
+      document.getElementById("backend-dot").className="dot";
+      document.getElementById("backend-text").textContent=`ARIA v3.0 · ${d.org||"ARIA"} · Online`;
+      document.getElementById("setup-note").textContent="Backend connected · Live Jamf data enabled";
+    }
+  }catch{
+    document.getElementById("backend-dot").className="dot red";
+    document.getElementById("backend-text").textContent="ARIA v3.0 · Offline";
+    document.getElementById("setup-note").textContent="Backend unreachable — check that aria_server.py is running";
+  }
+  // Load config (tech names, org)
+  try{
+    const r=await fetch("/api/config",{headers:{"X-ARIA-Key":window._ARIA_KEY||""}});
+    if(r.ok){
+      _ariaConfig=await r.json();
+      populateTechNames(_ariaConfig.tech_names||[]);
+      if(_ariaConfig.org_name){
+        document.title=`${_ariaConfig.org_name} · ARIA`;
+        document.querySelector("h1").textContent=`${_ariaConfig.org_name} · ARIA`;
+      }
+    }
+  }catch{}
+}
+
+function populateTechNames(names){
+  const sel=document.getElementById("sel-tech");
+  // Keep the first placeholder option
+  while(sel.options.length>1) sel.remove(1);
+  names.forEach(n=>{const o=document.createElement("option");o.value=n;o.textContent=n;sel.appendChild(o);});
+  // Always add Other
+  const o=document.createElement("option");o.value="Other";o.textContent="Other";sel.appendChild(o);
+}
+
+// ── Setup
+document.getElementById("sel-tech").addEventListener("change",e=>{techName=e.target.value;document.getElementById("btn-start").disabled=!techName;});
+document.getElementById("setup-serial").addEventListener("input",e=>{e.target.value=e.target.value.toUpperCase();});
+document.getElementById("btn-start").addEventListener("click",startSession);
+
+async function startSession(){
+  const serial=document.getElementById("setup-serial").value.trim().toUpperCase();
+  const user=document.getElementById("setup-user").value.trim().toLowerCase();
+  document.getElementById("setup").style.display="none";
+  document.getElementById("chat").style.display="flex";
+  document.getElementById("header-label").textContent=`ARIA · ${techName.split(" ")[0]}`;
+  document.getElementById("greeting").textContent=`Hey ${techName.split(" ")[0]} — what are we fixing?`;
+  loadHandoffLog();
+  if(serial){document.getElementById("lookup-input").value=serial;await doLookup(serial);}
+  else if(user){document.getElementById("lookup-input").value=user;await doLookup(user);}
+}
+
+// ── Tabs
+function switchTab(tab){
+  ["info","policies","log"].forEach(t=>{
+    document.getElementById(`tab-${t}`).style.display=t===tab?"block":"none";
+    document.querySelector(`.ptab[data-tab="${t}"]`).classList.toggle("active",t===tab);
+  });
+  if(tab==="policies"&&deviceData)loadPolicies(deviceData.serial);
+  if(tab==="log")loadHandoffLog();
+}
+
+// ── Lookup
+document.getElementById("btn-lookup").addEventListener("click",()=>{const v=document.getElementById("lookup-input").value.trim();if(v)doLookup(v);});
+document.getElementById("lookup-input").addEventListener("keydown",e=>{if(e.key==="Enter"){const v=e.target.value.trim();if(v)doLookup(v);}});
+document.getElementById("lookup-input").addEventListener("input",e=>{const v=e.target.value.trim();if(/^[A-Z0-9]{8,14}$/i.test(v)&&!v.includes(".")&&!v.includes("_"))e.target.value=v.toUpperCase();});
+
+async function doLookup(value){
+  const isSerial=/^[A-Z0-9]{8,14}$/i.test(value)&&!value.includes(".")&&!value.includes("_");
+  if(isSerial)await lookupDevice(value.toUpperCase());
+  else await lookupUser(value.toLowerCase());
+}
+
+async function lookupDevice(serial){
+  showPanel(`<div style="color:rgba(74,222,128,.4);text-align:center;padding:20px;font-size:12px">Looking up ${serial}...</div>`);
+  try{
+    const r=await fetch(`/api/device/${serial}`,{headers:{"X-ARIA-Key":ARIA_KEY}});
+    if(!r.ok){const e=await r.json();throw new Error(e.error||"Not found");}
+    deviceData=await r.json();
+    renderDeviceCard(deviceData);
+  }catch(e){deviceData=null;showPanel(`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`);}
+}
+
+async function lookupUser(username){
+  showPanel(`<div style="color:rgba(74,222,128,.4);text-align:center;padding:20px;font-size:12px">Looking up ${username}...</div>`);
+  try{
+    const r=await fetch(`/api/user/${username}`,{headers:{"X-ARIA-Key":ARIA_KEY}});
+    if(!r.ok)throw new Error("User not found");
+    const data=await r.json();
+    if(!data.devices||data.devices.length===0){showPanel(`<div style="color:var(--amber);font-size:12px">⚠ No devices found for ${username}</div>`);return;}
+    if(data.devices.length===1){await lookupDevice(data.devices[0].serial_number||data.devices[0].serial);return;}
+    let html=`<div class="panel-title">DEVICES FOR ${username.toUpperCase()}</div>`;
+    data.devices.forEach(d=>{html+=`<div class="device-pick" onclick="lookupDevice('${d.serial_number||d.serial}')"><div class="device-pick-name">${d.name||d.serial_number||d.serial}</div><div class="device-pick-meta">${d.model||""} · ${d.serial_number||d.serial}</div></div>`;});
+    showPanel(html);
+  }catch(e){showPanel(`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`);}
+}
+
+function showPanel(html){
+  // Close fleet panel when a device is selected
+  closeFleet();
+  document.getElementById("device-panel").classList.add("visible");
+  document.getElementById("device-content").innerHTML=html;
+  switchTab("info");
+}
+</script>
+<script>
+// ── Device card
+function checkinHours(ts){if(!ts)return null;return(Date.now()-new Date(ts).getTime())/3.6e6;}
+function checkinColor(h){if(h===null)return"var(--amber)";return h<24?"var(--green)":h<168?"var(--amber)":"var(--red)";}
+function checkinLabel(ts){if(!ts)return"Unknown";const h=Math.round(checkinHours(ts));return h<24?`${h}h ago`:`${Math.round(h/24)}d ago`;}
+function isOlderThan14Days(s){try{return(Date.now()-new Date(s).getTime())/8.64e7>14;}catch{return false;}}
+function eaRow(label,value,cls){const ic=cls==="ok"?"✓ ":cls==="warn"?"✗ ":cls==="caution"?"⚠ ":"";return`<div class="drow"><span class="dk">${label}</span><span class="${cls?`dv ${cls}`:"dv"}">${ic}${value}</span></div>`;}
+
+function renderDeviceCard(d){
+  const h=checkinHours(d.last_check_in),cc=checkinColor(h),ea=d.extension_attributes||{};
+  const isStale=h!==null&&h>168;
+  let html=`<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div><div class="device-name">${d.name||d.serial}</div><div class="device-user">${d.username||ea["Last User to login"]||"No user assigned"}</div></div><div style="width:8px;height:8px;border-radius:50%;background:${cc};box-shadow:0 0 6px ${cc}"></div></div>`;
+  if(isStale)html+=`<div class="stale-warn">⚠ Stale — last seen ${Math.round(h/24)}d ago. MDM commands may not reach this device.</div>`;
+  html+=`<div class="drow"><span class="dk">Model</span><span class="dv">${d.model||"—"}</span></div>
+    <div class="drow"><span class="dk">macOS</span><span class="dv">${d.os_version||"—"}</span></div>
+    <div class="drow"><span class="dk">Serial</span><span class="dv">${d.serial}</span></div>
+    <div class="drow"><span class="dk">Last check-in</span><span class="dv" style="color:${cc}">${checkinLabel(d.last_check_in)}</span></div>
+    <div class="drow"><span class="dk">Site</span><span class="dv">${d.site||"—"}</span></div>
+    <div class="drow"><span class="dk">Dept</span><span class="dv">${d.department||"—"}</span></div>
+    <div class="drow"><span class="dk">FileVault</span><span class="dv ${d.filevault_enabled===false?"warn":d.filevault_enabled?"ok":""}">${d.filevault_enabled?`✓ On (${d.filevault_users} users)`:"✗ OFF"}</span></div>
+    <div class="drow"><span class="dk">Managed</span><span class="dv ${d.managed?"ok":"warn"}">${d.managed?"✓ Yes":"✗ No"}</span></div>
+    <div class="drow" style="border:none"><span class="dk">Chip</span><span class="dv">${d.processor_type||(d.apple_silicon?"Apple Silicon":"Intel")}</span></div>`;
+
+  const sc=ea["SUPER Compliant"],ss=ea["SUPER status"],sr=ea["Last Super Run"],sv=ea["SUPER version"];
+  const sh=ea["SUPER(hard) - Hours to Deadline"],soft=ea["SUPER(soft) - Hours to Deadline"];
+  const sd=ea["number of times the user has deferred the Deadline Focus, S.U.P.E.R.M.A.N"];
+  const jcv=ea["Jamf Connect Version"],jcu=ea["Jamf Connect Users"],jcd=ea["Jamf Connect - DisplayName"];
+  const lu=ea["Last User to login"],net=ea["Network Interface Details"];
+  const ga=ea["OS - Guest Account Disabled"],pg=ea["Jamf Protect - Smart Groups"],cu=ea["Update Chrome"];
+
+  html+=`<div class="ea-section"><div class="ea-title">LAST USER &amp; NETWORK</div>`;
+  if(lu)html+=eaRow("Last login",lu,false);
+  if(net)html+=eaRow("Network",net,false);
+  html+=`</div>`;
+
+  html+=`<div class="ea-section"><div class="ea-title">SUPER</div>`;
+  if(sc)html+=eaRow("Compliant",sc,sc.toLowerCase().includes("non")?"warn":"ok");
+  if(ss)html+=eaRow("Status",ss,ss.toLowerCase()!=="ok"?"warn":"ok");
+  if(sr)html+=eaRow("Last run",sr,isOlderThan14Days(sr)?"caution":"ok");
+  if(sv)html+=eaRow("Version",sv,false);
+  if(sh)html+=eaRow("Hard deadline",sh+"h",parseInt(sh)<24?"warn":parseInt(sh)<72?"caution":false);
+  if(soft)html+=eaRow("Soft deadline",soft+"h",parseInt(soft)<24?"warn":false);
+  if(sd&&sd!=="0")html+=eaRow("Deferrals",sd,parseInt(sd)>5?"warn":"caution");
+  html+=`</div>`;
+
+  html+=`<div class="ea-section"><div class="ea-title">JAMF CONNECT</div>`;
+  if(jcv!==null){const m=!jcv||jcv==="Does not exist";html+=eaRow("Version",m?"Not installed":jcv,m?"warn":"ok");}
+  if(jcd&&jcd!=="Does not exist")html+=eaRow("Display",jcd,false);
+  if(jcu!==null)html+=eaRow("Users",jcu,jcu==="0"?"caution":"ok");
+  html+=`</div>`;
+
+  html+=`<div class="ea-section"><div class="ea-title">SECURITY &amp; OTHER</div>`;
+  if(pg)html+=eaRow("Jamf Protect",pg,"ok");
+  if(ga)html+=eaRow("Guest account",ga.toLowerCase().includes("fail")?"Enabled (risk)":"Disabled",ga.toLowerCase().includes("fail")?"warn":"ok");
+  if(cu&&cu.trim())html+=eaRow("Chrome update",cu,"caution");
+  html+=`</div>`;
+
+  html+=`<div class="action-row">
+    <button class="action-btn" onclick="sendAction('flush-mdm','Flush MDM')">Flush MDM</button>
+    <button class="action-btn danger" onclick="sendAction('restart','Restart')">Restart</button>
+    <button class="action-btn danger" onclick="sendAction('lock','Lock')">Lock</button>
+  </div></div>`;
+
+  document.getElementById("device-content").innerHTML=html;
+  document.getElementById("device-panel").classList.add("visible");
+}
+
+async function sendAction(action,label){
+  if(!deviceData)return;
+  try{
+    const r=await fetch(`/api/device/${deviceData.serial}/${action}`,{method:"POST",headers:{"X-ARIA-Key":ARIA_KEY}});
+    const d=await r.json();
+    appendMessage("assistant",d.success?`✓ ${label} sent to ${deviceData.name||deviceData.serial}.`:`⚠ ${label}: ${d.note||d.error||"Check Jamf Pro."}`);
+  }catch{appendMessage("assistant",`⚠ Could not send ${label} — backend error.`);}
+}
+</script>
+<script>
+// ── Policies
+let policyOffset=0,policyTotal=0,policySerial=null;
+async function loadPolicies(serial,append=false){
+  const el=document.getElementById("policies-content");
+  policySerial=serial;
+  if(!append){policyOffset=0;el.innerHTML='<div style="color:rgba(74,222,128,.4);text-align:center;padding:20px;font-size:12px">Loading...</div>';}
+  else document.getElementById("btn-load-more-policies")?.remove();
+  try{
+    const r=await fetch(`/api/device/${serial}/policies?offset=${policyOffset}&limit=15`,{headers:{"X-ARIA-Key":ARIA_KEY}});
+    if(!r.ok)throw new Error("Could not load policies");
+    const data=await r.json();
+    policyTotal=data.total||0;
+    policyOffset+=(data.policy_logs||[]).length;
+    const logs=data.policy_logs||[];
+    if(!append)el.innerHTML="";
+    if(logs.length===0&&!append){el.innerHTML='<div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:20px">No policy history</div>';return;}
+    const frag=document.createDocumentFragment();
+    logs.forEach(p=>{
+      const s=(p.status||"").toLowerCase();
+      const cls=s.includes("complet")||s==="pass"?"pass":s.includes("fail")?"fail":"pending";
+      const lbl=cls==="pass"?"✓ Pass":cls==="fail"?"✗ Fail":"● "+(p.status||"?");
+      const dt=p.date_completed?new Date(p.date_completed).toLocaleDateString():"";
+      const div=document.createElement("div");div.className="policy-entry";
+      div.innerHTML=`<div class="policy-name">${(p.policy_name||"Unknown").replace(/</g,"&lt;")}</div><div class="policy-meta"><span class="policy-status ${cls}">${lbl}</span><span class="policy-date">${dt}</span></div>`;
+      frag.appendChild(div);
+    });
+    el.appendChild(frag);
+    if(policyOffset<policyTotal){
+      const more=document.createElement("button");more.id="btn-load-more-policies";
+      more.textContent=`Load more (${policyTotal-policyOffset} remaining)`;
+      more.style.cssText="width:100%;margin-top:10px;padding:8px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--green2);font-size:11px;font-family:var(--mono);cursor:pointer";
+      more.onclick=()=>loadPolicies(policySerial,true);el.appendChild(more);
+    }else{
+      const done=document.createElement("div");
+      done.style.cssText="text-align:center;color:rgba(74,222,128,.25);font-size:10px;font-family:var(--mono);padding:8px";
+      done.textContent=`— all ${policyTotal} entries shown —`;el.appendChild(done);
+    }
+  }catch(e){el.innerHTML=`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`;}
+}
+
+// ── Handoff log (server-side — shared across all techs)
+async function loadHandoffLog(){
+  try{
+    // If a device is selected, filter log to that device
+    const serial = deviceData ? deviceData.serial : "";
+    const url = serial ? `/api/log?device=${serial}` : "/api/log";
+    const r=await fetch(url,{headers:{"X-ARIA-Key":ARIA_KEY}});
+    const d=await r.json();
+    renderLog(d.entries||[], serial);
+  }catch(e){renderLog([]);}
+}
+
+function renderLog(entries, device){
+  const el=document.getElementById("log-content");
+  const header = device
+    ? `<div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);margin-bottom:8px;letter-spacing:.08em">NOTES FOR ${device} <span style="cursor:pointer;color:rgba(74,222,128,.5)" onclick="loadAllLog()">· show all</span></div>`
+    : `<div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);margin-bottom:8px;letter-spacing:.08em">ALL RECENT NOTES</div>`;
+  if(!entries.length){
+    el.innerHTML=header+'<div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:10px 0">'+(device?"No notes for this device yet":"No entries yet")+'</div>';
+    return;
+  }
+  // entries from server are in oldest-first order; display newest first
+  const displayed = entries.slice().reverse().slice(0, 50);
+  // We need the original index in the full array for delete/edit
+  // Store full entries globally so we can reference by position
+  window._logEntries = entries;
+  el.innerHTML = header + displayed.map((e, displayIdx) => {
+    const origIdx = entries.length - 1 - displayIdx;
+    const edited = e.edited ? ' <span style="color:rgba(74,222,128,.3);font-size:9px">(edited)</span>' : '';
+    return `<div class="log-entry" id="log-entry-${origIdx}">
+      <div class="log-entry-header">
+        <span class="log-tech">${e.tech}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="log-time">${new Date(e.ts).toLocaleString([],{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
+          <button onclick="startEditLog(${origIdx})" style="background:none;border:none;color:rgba(74,222,128,.3);font-size:11px;cursor:pointer;padding:0;line-height:1" title="Edit">✏</button>
+          <button onclick="deleteLog(${origIdx})" style="background:none;border:none;color:rgba(248,113,113,.4);font-size:11px;cursor:pointer;padding:0;line-height:1" title="Delete">✕</button>
+        </div>
+      </div>
+      <div class="log-text" id="log-text-${origIdx}">${e.text.replace(/</g,"&lt;")}${edited}</div>
+      ${e.device?`<div class="log-device">📱 ${e.device}</div>`:""}
+    </div>`;
+  }).join("");
+}
+
+async function loadAllLog(){
+  try{
+    const r=await fetch("/api/log",{headers:{"X-ARIA-Key":ARIA_KEY}});
+    const d=await r.json();
+    renderLog(d.entries||[], "");
+  }catch(e){renderLog([]);}
+}
+
+async function deleteLog(idx){
+  if(!confirm("Delete this note?"))return;
+  try{
+    await fetch(`/api/log/${idx}`,{method:"DELETE",headers:{"X-ARIA-Key":ARIA_KEY}});
+    await loadHandoffLog();
+  }catch(e){console.error("Delete failed:",e);}
+}
+
+function startEditLog(idx){
+  const entry = window._logEntries && window._logEntries[idx];
+  if(!entry)return;
+  const textEl = document.getElementById(`log-text-${idx}`);
+  if(!textEl)return;
+  textEl.innerHTML=`
+    <textarea id="edit-area-${idx}" style="width:100%;min-height:60px;padding:6px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:11px;font-family:var(--sans);resize:none">${entry.text.replace(/</g,"&lt;")}</textarea>
+    <div style="display:flex;gap:6px;margin-top:4px">
+      <button onclick="saveEditLog(${idx})" style="flex:1;padding:5px;border-radius:5px;border:none;background:var(--green4);color:#f0fdf4;font-size:11px;cursor:pointer">Save</button>
+      <button onclick="loadHandoffLog()" style="flex:1;padding:5px;border-radius:5px;border:1px solid var(--border);background:none;color:rgba(74,222,128,.5);font-size:11px;cursor:pointer">Cancel</button>
+    </div>`;
+  document.getElementById(`edit-area-${idx}`)?.focus();
+}
+
+async function saveEditLog(idx){
+  const ta = document.getElementById(`edit-area-${idx}`);
+  if(!ta)return;
+  const text = ta.value.trim();
+  if(!text)return;
+  try{
+    await fetch(`/api/log/${idx}`,{method:"PATCH",headers:{"Content-Type":"application/json","X-ARIA-Key":ARIA_KEY},body:JSON.stringify({text})});
+    await loadHandoffLog();
+  }catch(e){console.error("Edit failed:",e);}
+}
+
+async function addLogEntry(){
+  const text=document.getElementById("log-note").value.trim();if(!text)return;
+  const btn=document.getElementById("log-add-btn");
+  btn.textContent="Saving...";btn.disabled=true;
+  try{
+    await fetch("/api/log",{method:"POST",headers:{"Content-Type":"application/json","X-ARIA-Key":ARIA_KEY},body:JSON.stringify({tech:techName,text,ts:Date.now(),device:deviceData?(deviceData.name||deviceData.serial):null})});
+    document.getElementById("log-note").value="";
+    await loadHandoffLog();
+  }catch(e){console.error("Log save failed:",e);}
+  finally{btn.textContent="Add Note";btn.disabled=false;}
+}
+
+// ── Navigation
+document.getElementById("btn-home").addEventListener("click",goHome);
+document.getElementById("btn-switch").addEventListener("click",switchUser);
+// ── Summary (called via onclick)
+
+function goHome(){
+  messages=[];deviceData=null;
+  document.getElementById("messages").innerHTML=emptyStateHTML();
+  document.getElementById("device-panel").classList.remove("visible");
+  document.getElementById("device-content").innerHTML="";
+  document.getElementById("lookup-input").value="";
+  document.getElementById("msg-input").value="";
+  document.getElementById("btn-send").disabled=true;
+  switchTab("info");
+}
+
+function switchUser(){
+  messages=[];deviceData=null;techName="";
+  document.getElementById("setup").style.display="flex";
+  document.getElementById("chat").style.display="none";
+  document.getElementById("sel-tech").value="";
+  document.getElementById("setup-serial").value="";
+  document.getElementById("setup-user").value="";
+  document.getElementById("btn-start").disabled=true;
+  checkBackend();
+}
+
+function emptyStateHTML(){
+  return`<div id="empty-state"><div class="empty-icon">⌘</div><p id="greeting">Hey ${techName.split(" ")[0]} — what are we fixing?</p><div class="chips"><span class="chip" onclick="chipClick(this)">Mac won't check into Jamf</span><span class="chip" onclick="chipClick(this)">Policy keeps failing</span><span class="chip" onclick="chipClick(this)">Printer disappeared</span><span class="chip" onclick="chipClick(this)">SUPER not running</span><span class="chip" onclick="chipClick(this)">ConnectWise won't connect</span><span class="chip" onclick="chipClick(this)">FileVault issue</span><span class="chip" onclick="chipClick(this)">Jamf Connect login loop</span><span class="chip" onclick="chipClick(this)">Device stale in Jamf</span></div></div>`;
+}
+</script>
+<script>
+// ── Summary
+let lastSummaryText="";
+
+function closeSummary(){document.getElementById("summary-modal").classList.remove("visible");}
+
+async function copySummaryText(){
+  if(!lastSummaryText)return;
+  try{
+    await navigator.clipboard.writeText(lastSummaryText);
+    const btn=document.querySelector(".summary-action-btn.secondary");
+    btn.textContent="✓ Copied!";setTimeout(()=>{btn.textContent="📋 Copy to clipboard";},2000);
+  }catch(e){console.error("Copy failed",e);}
+}
+
+async function copySummary(){
+  if(!messages.length){
+    const btn=document.getElementById("btn-summary");
+    btn.textContent="No chat yet";
+    setTimeout(()=>{btn.textContent="📋 Summary";},2000);
+    return;
+  }
+  // Show modal in loading state
+  document.getElementById("summary-modal").classList.add("visible");
+  document.getElementById("summary-generating").style.display="block";
+  document.getElementById("summary-content").style.display="none";
+
+  // Build device section
+  let deviceHtml="<div style='color:rgba(74,222,128,.3);font-size:12px'>No device selected this session</div>";
+  let deviceLine="";
+  if(deviceData){
+    const h=deviceData.last_check_in?Math.round(checkinHours(deviceData.last_check_in)):null;
+    deviceLine=`Device: ${deviceData.name||deviceData.serial} (${deviceData.model||""}, macOS ${deviceData.os_version||""}, ${deviceData.site||"unknown site"})`;
+    deviceHtml=`
+      <div class="summary-device-row"><span class="summary-device-key">Device</span><span class="summary-device-val">${deviceData.name||deviceData.serial}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">Model</span><span class="summary-device-val">${deviceData.model||"—"}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">macOS</span><span class="summary-device-val">${deviceData.os_version||"—"}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">Serial</span><span class="summary-device-val">${deviceData.serial}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">Site</span><span class="summary-device-val">${deviceData.site||"—"}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">User</span><span class="summary-device-val">${deviceData.username||"—"}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">Last check-in</span><span class="summary-device-val">${h!==null?(h<24?`${h}h ago`:`${Math.round(h/24)}d ago`):"—"}</span></div>`;
+  }
+  try{
+    const convo=messages.map(m=>`${m.role==="user"?techName:"ARIA"}: ${m.content}`).join("\n\n");
+    const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","X-ARIA-Key":ARIA_KEY},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:400,messages:[{role:"user",content:`Summarize this tech support session in 3-5 sentences for a help desk ticket. Be specific: include the problem, what was tried, and the outcome or next step.\n\n${deviceLine}\n\n${convo}`}]})});
+    const data=await r.json();
+    const aiText=data.content?.find(b=>b.type==="text")?.text||"Could not generate summary.";
+    lastSummaryText=`ARIA Session Summary — ${new Date().toLocaleString()}\nTech: ${techName}\n${deviceLine}\n\n${aiText}`;
+    document.getElementById("summary-generating").style.display="none";
+    document.getElementById("summary-device-card").innerHTML=deviceHtml;
+    document.getElementById("summary-ai-text").textContent=aiText;
+    document.getElementById("summary-meta").textContent=`Generated ${new Date().toLocaleString()} · Tech: ${techName}`;
+    document.getElementById("summary-content").style.display="block";
+  }catch(e){
+    document.getElementById("summary-generating").textContent="⚠ Could not generate summary — check backend.";
+  }
+}
+
+// ── Messaging
+const msgInput=document.getElementById("msg-input"),btnSend=document.getElementById("btn-send");
+msgInput.addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";btnSend.disabled=!e.target.value.trim()||loading;});
+msgInput.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}});
+btnSend.addEventListener("click",sendMessage);
+function chipClick(el){msgInput.value=el.textContent;msgInput.dispatchEvent(new Event("input"));msgInput.focus();}
+
+function buildDeviceContext(){
+  if(!deviceData)return"";
+  const ea=deviceData.extension_attributes||{};
+  const h=deviceData.last_check_in?Math.round(checkinHours(deviceData.last_check_in)):null;
+  return`[LIVE JAMF DATA — ${deviceData.serial}]
+Name: ${deviceData.name||"unknown"} | Model: ${deviceData.model||"unknown"} (${deviceData.processor_type||"unknown"})
+macOS: ${deviceData.os_version||"unknown"} | Last check-in: ${h!==null?(h<24?`${h}h ago`:`${Math.round(h/24)}d ago`):"unknown"}
+FileVault: ${deviceData.filevault_enabled?"Enabled":"DISABLED"} | Managed: ${deviceData.managed?"Yes":"No"}
+User: ${deviceData.username||"none"} | Site: ${deviceData.site||"unknown"} | Dept: ${deviceData.department||"unknown"}
+SUPER: ${ea["SUPER Compliant"]||"unknown"} | ${ea["SUPER status"]||"unknown"} | Last run: ${ea["Last Super Run"]||"unknown"}
+Jamf Connect: ${ea["Jamf Connect Version"]||"unknown"} | Users: ${ea["Jamf Connect Users"]||"unknown"}
+Network: ${ea["Network Interface Details"]||"unknown"}
+[END JAMF DATA]\n\n`;
+}
+
+function appendMessage(role,text){
+  document.getElementById("empty-state")?.remove();
+  const wrap=document.createElement("div");
+  wrap.className=`msg-wrap ${role==="user"?"user":""}`;
+  wrap.innerHTML=`<div class="avatar ${role==="user"?"tech":"ai"}">${role==="user"?techName.charAt(0).toUpperCase():"A"}</div><div class="bubble ${role==="user"?"user":"ai"}">${text.replace(/</g,"&lt;")}</div>`;
+  document.getElementById("messages").appendChild(wrap);
+  wrap.scrollIntoView({behavior:"smooth",block:"end"});
+}
+function showTyping(){const el=document.createElement("div");el.className="typing-wrap";el.id="typing";el.innerHTML=`<div class="avatar ai">A</div><div class="typing-bubble"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div>`;document.getElementById("messages").appendChild(el);el.scrollIntoView({behavior:"smooth",block:"end"});}
+function hideTyping(){document.getElementById("typing")?.remove();}
+
+async function sendMessage(){
+  const text=msgInput.value.trim();if(!text||loading)return;
+  loading=true;btnSend.disabled=true;msgInput.value="";msgInput.style.height="44px";
+  messages.push({role:"user",content:text});appendMessage("user",text);showTyping();
+  const sysMsg=SYSTEM_PROMPT+(techName?`\n\nTech: ${techName}`:"");
+  const apiMsgs=messages.map((m,i)=>({role:m.role,content:i===0?buildDeviceContext()+m.content:m.content}));
+  try{
+    const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","X-ARIA-Key":ARIA_KEY},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1000,system:sysMsg,messages:apiMsgs})});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data?.error?.message||`API error ${r.status}`);
+    const reply=data.content?.find(b=>b.type==="text")?.text||"No response.";
+    messages.push({role:"assistant",content:reply});hideTyping();appendMessage("assistant",reply);
+  }catch(e){
+    hideTyping();
+    const err=document.createElement("div");err.className="error-bar";err.textContent="⚠ "+(e.message||"Something went wrong.");
+    document.getElementById("messages").appendChild(err);
+  }finally{loading=false;btnSend.disabled=!msgInput.value.trim();}
+}
+</script>
+<script>
+// ── Fleet
+document.getElementById("btn-fleet").addEventListener("click",toggleFleet);
+
+function closeFleet(){
+  fleetOpen=false;
+  document.getElementById("fleet-panel").style.display="none";
+  document.getElementById("btn-fleet").classList.remove("accent");
+  // Restore device panel if a device was loaded
+  if(deviceData) document.getElementById("device-panel").classList.add("visible");
+}
+
+function toggleFleet(){
+  if(fleetOpen){closeFleet();return;}
+  fleetOpen=true;
+  // Hide device panel when opening fleet
+  document.getElementById("device-panel").classList.remove("visible");
+  document.getElementById("fleet-panel").style.display="flex";
+  document.getElementById("btn-fleet").classList.add("accent");
+  renderFleetHome();
+}
+
+async function renderFleetHome(){
+  const el=document.getElementById("fleet-content");
+  el.innerHTML='<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">Loading...</div>';
+  try{const r=await fetch("/api/fleet/sites",{headers:{"X-ARIA-Key":ARIA_KEY}});const d=await r.json();fleetSites=d.sites||[];}catch{fleetSites=[];}
+  el.innerHTML=`
+    <div style="margin-bottom:14px">
+      <div class="panel-title" style="margin-bottom:8px">HEALTH CHECKS</div>
+      <button class="fleet-query-btn" onclick="runFleetQuery('stale_7')"><span>🕐 Stale &gt; 7 days</span><span class="fq-count" id="fq-stale_7">—</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('stale_14')"><span>🕐 Stale &gt; 14 days</span><span class="fq-count" id="fq-stale_14">—</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('stale_30')"><span>🕐 Stale &gt; 30 days</span><span class="fq-count" id="fq-stale_30">—</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('filevault_off')"><span>🔓 FileVault off</span><span class="fq-count warn" id="fq-filevault_off">—</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('unmanaged')"><span>⚠ Unmanaged</span><span class="fq-count warn" id="fq-unmanaged">—</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('super_noncompliant')"><span>🔄 SUPER non-compliant</span><span class="fq-count caution" id="fq-super_noncompliant">—</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('jc_missing')"><span>🔑 Jamf Connect missing</span><span class="fq-count caution" id="fq-jc_missing">—</span></button>
+    </div>
+    ${fleetSites.length?`<div style="margin-bottom:14px"><div class="panel-title" style="margin-bottom:8px">BY SITE</div><div style="display:flex;flex-wrap:wrap;gap:4px">${fleetSites.map(s=>`<span class="site-btn" onclick="runFleetQuery('site:${encodeURIComponent(s)}')">${s}</span>`).join("")}</div></div>`:""}
+    <div><div class="panel-title" style="margin-bottom:8px">ALL DEVICES</div>
+    <button class="fleet-query-btn" onclick="runFleetQuery('all')"><span>🖥 Full fleet</span><span class="fq-count" id="fq-all">—</span></button></div>
+    <div style="margin-top:14px"><button onclick="loadFleetCounts(true)" style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--border);background:none;color:rgba(74,222,128,.3);font-size:10px;font-family:var(--mono);cursor:pointer">↻ Refresh cache</button></div>`;
+  loadFleetCounts();
+}
+
+async function loadFleetCounts(force=false){
+  try{
+    const r=await fetch(`/api/fleet/query?q=all${force?"&refresh=true":""}`,{headers:{"X-ARIA-Key":ARIA_KEY}});
+    const d=await r.json();
+    if(d.cache_age_minutes!==null){const l=document.getElementById("fleet-cache-label");if(l)l.textContent=`cached ${d.cache_age_minutes}m ago`;}
+    const rs=d.results||[];
+    const counts={stale_7:rs.filter(x=>x.hours_since>168).length,stale_14:rs.filter(x=>x.hours_since>336).length,stale_30:rs.filter(x=>x.hours_since>720).length,filevault_off:rs.filter(x=>!x.filevault).length,unmanaged:rs.filter(x=>!x.managed).length,super_noncompliant:rs.filter(x=>x.super_compliant&&x.super_compliant.toLowerCase().includes("non")).length,jc_missing:rs.filter(x=>!x.jc_version||x.jc_version==="Does not exist"||x.jc_version==="").length,all:rs.length};
+    for(const[q,count]of Object.entries(counts)){const el=document.getElementById(`fq-${q}`);if(el)el.textContent=count;}
+  }catch(e){console.error("Fleet counts failed:",e);}
+}
+
+async function runFleetQuery(query){
+  const el=document.getElementById("fleet-content");
+  el.innerHTML='<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">Running query...</div>';
+  try{
+    const r=await fetch(`/api/fleet/query?q=${encodeURIComponent(query)}`,{headers:{"X-ARIA-Key":ARIA_KEY}});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Query failed");
+    renderFleetResults(d);
+  }catch(e){el.innerHTML=`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`;}
+}
+
+function renderFleetResults(data){
+  const el=document.getElementById("fleet-content");
+  const results=data.results||[];
+  function badge(h){if(h===null||h===undefined)return`<span class="fr-badge amber">unknown</span>`;if(h>720)return`<span class="fr-badge red">${Math.round(h/24)}d ago</span>`;if(h>168)return`<span class="fr-badge amber">${Math.round(h/24)}d ago</span>`;return`<span class="fr-badge green">${h<24?Math.round(h)+"h":Math.round(h/24)+"d"} ago</span>`;}
+  let html=`<button class="fleet-back" onclick="renderFleetHome()">← Back</button><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="color:var(--green2);font-family:var(--mono);font-size:11px;font-weight:700">${data.label}</span><span style="color:rgba(74,222,128,.4);font-size:10px;font-family:var(--mono)">${data.count} of ${data.total_fleet}</span></div>`;
+  if(!results.length){html+=`<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">✓ No devices match this query</div>`;}
+  else{
+    html+=results.slice(0,100).map(d=>`<div class="fleet-result" onclick="loadFleetDevice('${d.serial}')"><div style="flex:1;min-width:0"><div class="fr-name">${d.name||d.serial}</div><div class="fr-meta">${d.site||"No site"} · ${d.username||"No user"}</div></div>${badge(d.hours_since)}</div>`).join("");
+    if(results.length>100)html+=`<div style="text-align:center;color:rgba(74,222,128,.25);font-size:10px;font-family:var(--mono);padding:8px">Showing 100 of ${results.length}</div>`;
+  }
+  if(data.cache_age_minutes!==null){const l=document.getElementById("fleet-cache-label");if(l)l.textContent=`cached ${data.cache_age_minutes}m ago`;}
+  el.innerHTML=html;
+}
+
+async function loadFleetDevice(serial){
+  if(!serial)return;
+  document.getElementById("lookup-input").value=serial;
+  await lookupDevice(serial);
+}
+
+checkBackend();
+</script>
+
+<!-- Summary Modal -->
+<div id="summary-modal">
+  <div id="summary-box">
+    <div id="summary-header">
+      <span id="summary-title">📋 Session Summary</span>
+      <button id="summary-close" onclick="closeSummary()">✕</button>
+    </div>
+    <div id="summary-body">
+      <div id="summary-generating">Generating summary...</div>
+      <div id="summary-content">
+        <div id="summary-device-card" class="summary-device-card"></div>
+        <div id="summary-ai-text" class="summary-ai-text"></div>
+        <div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.3);text-align:right" id="summary-meta"></div>
+      </div>
+    </div>
+    <div id="summary-footer">
+      <button class="summary-action-btn secondary" onclick="copySummaryText()">📋 Copy to clipboard</button>
+      <button class="summary-action-btn primary" onclick="closeSummary()">Done</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
