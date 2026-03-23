@@ -2,7 +2,7 @@
 
 ARIA (Automated Resolution & Incident Assistant) is a self-hosted, AI-powered troubleshooting tool for Mac administrators running Jamf Pro. It gives your IT team a conversational interface backed by live Jamf data, fleet-wide health queries, MDM actions, and AI-generated ticket summaries — all running on your own hardware with your own API key.
 
-![ARIA Screenshot](docs/screenshot.png)
+![ARIA Screenshot](docs/screenshot-setup.png)
 
 ## Features
 
