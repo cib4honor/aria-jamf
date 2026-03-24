@@ -8,7 +8,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg0:#060d08;--bg1:#080f0a;--bg2:#0d1f12;--bg3:#111b15;--bg4:#0a1a0f;
+  --bg0:#060d08;--bg1:#080f0a;--bg2:#0d1f12;--bg3:#111b15;
   --border:#1a2e20;--border2:#166534;
   --green:#4ade80;--green2:#86efac;--green3:#d1fae5;--green4:#16a34a;
   --text:#e2f5e9;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
@@ -16,29 +16,37 @@
 }
 html,body{height:100%;background:var(--bg0);color:var(--text);font-family:var(--sans)}
 body{display:flex;flex-direction:column}
-#setup{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px;position:relative;overflow:hidden;min-height:100vh}
-.bg-photo{position:absolute;inset:0;background:url('/static/bg.jpg') center center/cover no-repeat;filter:brightness(0.35) saturate(0.8);will-change:transform;transform:translateZ(0)}
-.bg-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,13,8,.3) 0%,rgba(6,13,8,.7) 60%,rgba(6,13,8,.95) 100%);pointer-events:none}
-#setup-card{position:relative;width:100%;max-width:440px;z-index:1}
-.pill-badge{display:inline-flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 20px;margin-bottom:20px}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);flex-shrink:0}
-.dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}
-.pill-badge span{font-family:var(--mono);font-size:12px;color:var(--green2);letter-spacing:.12em}
-h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.5px}
-.subtitle{color:rgba(74,222,128,.6);font-size:14px;margin-bottom:32px}
+/* ── Shared input styles ── */
+select,input[type=text],input[type=password],textarea{width:100%;padding:10px 14px;border-radius:8px;background:var(--bg2);border:1px solid var(--border2);color:var(--green3);font-size:14px;font-family:var(--sans);transition:border-color .15s;appearance:none}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!important;box-shadow:0 0 0 2px rgba(74,222,128,.12)}
+.btn-primary{width:100%;padding:13px;border-radius:10px;border:none;background:var(--green4);color:#f0fdf4;font-size:15px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.btn-primary:disabled{background:#1a2e20;color:rgba(74,222,128,.2);cursor:default}
 .field{margin-bottom:14px}
 .field-label{display:block;color:var(--green2);font-size:11px;letter-spacing:.1em;margin-bottom:6px;font-family:var(--mono)}
 .field-label span{color:rgba(74,222,128,.35)}
-select,input[type=text],textarea{width:100%;padding:10px 14px;border-radius:8px;background:var(--bg2);border:1px solid var(--border2);color:var(--green3);font-size:14px;font-family:var(--sans);transition:border-color .15s;appearance:none}
-select{cursor:pointer}
-select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!important;box-shadow:0 0 0 2px rgba(74,222,128,.12)}
-#btn-start{width:100%;margin-top:8px;padding:13px 0;border-radius:10px;border:none;background:var(--green4);color:#f0fdf4;font-size:15px;font-weight:600;cursor:pointer;font-family:var(--sans)}
-#btn-start:disabled{background:#1a2e20;color:rgba(74,222,128,.2);cursor:default}
-.setup-note{color:rgba(74,222,128,.2);font-size:12px;text-align:center;margin-top:20px;font-family:var(--mono)}
-.setup-row{display:flex;gap:10px}
-.setup-row .field{flex:1}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);flex-shrink:0}
+.dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}
+.pill-badge{display:inline-flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 20px;margin-bottom:20px}
+.pill-badge span{font-family:var(--mono);font-size:12px;color:var(--green2);letter-spacing:.12em}
+h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.5px}
+.subtitle{color:rgba(74,222,128,.6);font-size:14px;margin-bottom:32px}
+.screen-note{color:rgba(74,222,128,.2);font-size:12px;text-align:center;margin-top:20px;font-family:var(--mono)}
+.screen-error{color:var(--red);font-size:12px;text-align:center;margin-top:10px;font-family:var(--mono);min-height:18px}
 </style>
 <style>
+/* ── Login / Change PW screens ── */
+.auth-screen{flex:1;display:none;align-items:center;justify-content:center;padding:40px 20px;position:relative;overflow:hidden;min-height:100vh}
+.auth-screen.visible{display:flex}
+.bg-photo{position:absolute;inset:0;background:url('/static/bg.jpg') center/cover no-repeat;filter:brightness(0.35) saturate(0.8);will-change:transform;transform:translateZ(0)}
+.bg-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,13,8,.3) 0%,rgba(6,13,8,.7) 60%,rgba(6,13,8,.95) 100%);pointer-events:none}
+.auth-card{position:relative;width:100%;max-width:400px;z-index:1}
+/* ── Setup screen ── */
+#setup{flex:1;display:none;align-items:center;justify-content:center;padding:40px 20px;position:relative;overflow:hidden;min-height:100vh}
+#setup.visible{display:flex}
+#setup-card{position:relative;width:100%;max-width:440px;z-index:1}
+.setup-row{display:flex;gap:10px}
+.setup-row .field{flex:1}
+/* ── Chat layout ── */
 #chat{flex:1;display:none;flex-direction:column;overflow:hidden}
 #chat-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg1);flex-shrink:0;gap:8px}
 #header-left{display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -49,6 +57,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
 .hbtn.accent{background:rgba(74,222,128,.08);border-color:var(--border2);color:var(--green2)}
 #lookup-input{padding:4px 10px;border-radius:6px;background:var(--bg2);border:1px solid var(--border2);color:var(--green3);font-size:11px;font-family:var(--mono);width:150px}
 #chat-body{display:flex;flex:1;overflow:hidden}
+/* ── Device panel ── */
 #device-panel{width:260px;flex-shrink:0;border-right:1px solid var(--border);display:none;flex-direction:column;background:var(--bg0)}
 #device-panel.visible{display:flex}
 #fleet-panel{width:260px;flex-shrink:0;border-right:1px solid var(--border);display:none;flex-direction:column;background:var(--bg0)}
@@ -59,30 +68,28 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
 .panel-body::-webkit-scrollbar{width:3px}
 .panel-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 .panel-title{font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);letter-spacing:.1em;margin-bottom:10px}
+</style>
+<style>
+/* ── Device card ── */
 .device-name{font-family:var(--mono);color:var(--green);font-size:13px;font-weight:700;margin-bottom:1px}
 .device-user{color:rgba(74,222,128,.4);font-size:11px;margin-bottom:10px}
 .stale-warn{background:#1a1200;border:1px solid #92400e;border-radius:6px;padding:7px 10px;color:var(--amber);font-size:11px;margin-bottom:10px}
 .drow{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);align-items:center}
 .dk{color:rgba(74,222,128,.4);font-size:11px}
 .dv{color:var(--green3);text-align:right;font-family:var(--mono);font-size:11px;word-break:break-all}
-.dv.warn{color:var(--red)}
-.dv.ok{color:var(--green)}
-.dv.caution{color:var(--amber)}
+.dv.warn{color:var(--red)}.dv.ok{color:var(--green)}.dv.caution{color:var(--amber)}
 .ea-section{margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
 .ea-title{font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.3);letter-spacing:.08em;margin-bottom:6px}
 .action-row{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
 .action-btn{flex:1;min-width:60px;padding:6px 4px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--green2);font-size:10px;font-family:var(--mono);cursor:pointer;transition:all .15s;text-align:center}
 .action-btn:hover{background:#14532d;color:var(--green3)}
 .action-btn.danger{border-color:#7f1d1d;background:#1a0a0a;color:var(--red)}
-</style>
-<style>
+/* ── Policies / Log ── */
 .policy-entry{padding:7px 0;border-bottom:1px solid var(--border);font-size:11px}
 .policy-name{color:var(--green3);margin-bottom:2px;line-height:1.3}
 .policy-meta{display:flex;justify-content:space-between;align-items:center}
 .policy-status{font-family:var(--mono);font-size:10px}
-.policy-status.pass{color:var(--green)}
-.policy-status.fail{color:var(--red)}
-.policy-status.pending{color:var(--amber)}
+.policy-status.pass{color:var(--green)}.policy-status.fail{color:var(--red)}.policy-status.pending{color:var(--amber)}
 .policy-date{color:rgba(74,222,128,.3);font-size:10px;font-family:var(--mono)}
 .log-entry{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;font-size:12px}
 .log-entry-header{display:flex;justify-content:space-between;margin-bottom:4px}
@@ -93,6 +100,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
 #log-add{width:100%;margin-top:8px}
 #log-add textarea{font-size:12px;min-height:64px;resize:none}
 #log-add-btn{width:100%;margin-top:6px;padding:8px;border-radius:8px;border:none;background:var(--green4);color:#f0fdf4;font-size:12px;cursor:pointer;font-family:var(--sans)}
+/* ── Chat area ── */
 #chat-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
 #messages{flex:1;overflow-y:auto;padding:20px 16px 8px;display:flex;flex-direction:column}
 #messages::-webkit-scrollbar{width:4px}
@@ -114,12 +122,11 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
 .typing-wrap{display:flex;gap:10px;align-items:center;margin-bottom:18px}
 .typing-bubble{background:var(--bg3);border:1px solid var(--border);border-radius:4px 16px 16px 16px;padding:12px 16px;display:flex;gap:5px;align-items:center}
 .tdot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.2s ease-in-out infinite}
-.tdot:nth-child(2){animation-delay:.2s}
-.tdot:nth-child(3){animation-delay:.4s}
+.tdot:nth-child(2){animation-delay:.2s}.tdot:nth-child(3){animation-delay:.4s}
 .error-bar{background:#1a0a0a;border:1px solid #7f1d1d;border-radius:8px;padding:10px 14px;color:var(--red);font-size:13px;margin:8px 0}
 #chat-input-area{padding:12px 16px;border-top:1px solid var(--border);background:var(--bg1);flex-shrink:0}
 #input-row{display:flex;gap:10px;align-items:flex-end}
-#msg-input{flex:1;padding:11px 14px;border-radius:10px;resize:none;background:var(--bg2);border:1px solid var(--border2);color:var(--green3);font-size:14px;font-family:var(--sans);line-height:1.5;min-height:44px;max-height:120px;overflow:auto;transition:border-color .15s}
+#msg-input{flex:1;padding:11px 14px;border-radius:10px;resize:none;background:var(--bg2);border:1px solid var(--border2);color:var(--green3);font-size:14px;font-family:var(--sans);line-height:1.5;min-height:44px;max-height:120px;overflow:auto}
 #msg-input::placeholder{color:rgba(74,222,128,.2)}
 #btn-send{width:44px;height:44px;border-radius:10px;border:none;flex-shrink:0;background:var(--green4);color:#f0fdf4;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #btn-send:disabled{background:#1a2e20;color:rgba(74,222,128,.15);cursor:default}
@@ -128,11 +135,13 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
 .device-pick:hover{border-color:var(--border2);background:var(--bg3)}
 .device-pick-name{color:var(--green);font-family:var(--mono);font-size:12px;font-weight:700}
 .device-pick-meta{color:rgba(74,222,128,.4);font-size:11px;margin-top:2px}
+</style>
+<style>
+/* ── Fleet ── */
 .fleet-query-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--green2);font-size:12px;font-family:var(--mono);cursor:pointer;transition:all .15s;margin-bottom:6px;text-align:left}
 .fleet-query-btn:hover{border-color:var(--border2);background:var(--bg3);color:var(--green3)}
 .fq-count{background:var(--bg0);border:1px solid var(--border2);color:var(--green);font-size:10px;padding:2px 7px;border-radius:10px;font-family:var(--mono)}
-.fq-count.warn{border-color:#7f1d1d;color:var(--red)}
-.fq-count.caution{border-color:#92400e;color:var(--amber)}
+.fq-count.warn{border-color:#7f1d1d;color:var(--red)}.fq-count.caution{border-color:#92400e;color:var(--amber)}
 .fleet-result{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);margin-bottom:5px;cursor:pointer;transition:all .15s;font-size:11px;gap:8px}
 .fleet-result:hover{border-color:var(--border2);background:var(--bg3)}
 .fr-name{color:var(--green);font-family:var(--mono);font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
@@ -142,49 +151,120 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
 .fr-badge.amber{color:var(--amber);background:#1a1200;border:1px solid #92400e}
 .fr-badge.green{color:var(--green);background:#0a1a0f;border:1px solid var(--border2)}
 .fleet-back{background:none;border:none;color:rgba(74,222,128,.5);font-size:11px;font-family:var(--mono);cursor:pointer;padding:0 0 10px;display:block}
-.fleet-back:hover{color:var(--green2)}
 .site-btn{display:inline-block;margin:3px;padding:5px 10px;border-radius:14px;border:1px solid var(--border);background:var(--bg2);color:var(--green2);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .15s}
 .site-btn:hover{border-color:var(--border2);color:var(--green3)}
-/* ── Summary modal ── */
-#summary-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
-#summary-modal.visible{display:flex}
-#summary-box{background:var(--bg1);border:1px solid var(--border2);border-radius:14px;width:100%;max-width:620px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
-#summary-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-#summary-title{font-family:var(--mono);font-size:13px;color:var(--green);font-weight:700}
-#summary-close{background:none;border:none;color:rgba(74,222,128,.4);font-size:18px;cursor:pointer;padding:0;line-height:1}
-#summary-close:hover{color:var(--green)}
-#summary-body{padding:20px;overflow-y:auto;flex:1}
-#summary-generating{color:rgba(74,222,128,.4);font-size:13px;text-align:center;padding:30px;font-family:var(--mono)}
-#summary-content{display:none}
+/* ── Modals ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-overlay.visible{display:flex}
+.modal-box{background:var(--bg1);border:1px solid var(--border2);border-radius:14px;width:100%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-family:var(--mono);font-size:13px;color:var(--green);font-weight:700}
+.modal-close{background:none;border:none;color:rgba(74,222,128,.4);font-size:18px;cursor:pointer;padding:0;line-height:1}
+.modal-close:hover{color:var(--green)}
+.modal-body{padding:20px;overflow-y:auto;flex:1}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0}
+.mbtn{flex:1;padding:10px;border-radius:8px;border:none;font-size:13px;font-family:var(--sans);cursor:pointer;font-weight:600;transition:all .15s}
+.mbtn.primary{background:var(--green4);color:#f0fdf4}.mbtn.primary:hover{background:#15803d}
+.mbtn.secondary{background:var(--bg2);border:1px solid var(--border2);color:var(--green2)}.mbtn.secondary:hover{background:var(--bg3)}
+/* ── Admin panel ── */
+.admin-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.atab{flex:1;padding:10px;font-size:12px;font-family:var(--mono);color:rgba(74,222,128,.4);cursor:pointer;text-align:center;border:none;background:none;border-bottom:2px solid transparent}
+.atab.active{color:var(--green);border-bottom-color:var(--green)}
+.user-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.user-name{flex:1;color:var(--green3)}
+.user-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid var(--border2);color:var(--green2)}
+.user-badge.admin{border-color:#7c3aed;color:#a78bfa}
+.ubtn{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:rgba(74,222,128,.5);font-size:11px;font-family:var(--mono);cursor:pointer}
+.ubtn:hover{border-color:var(--border2);color:var(--green2)}
+.ubtn.danger{border-color:#7f1d1d;color:var(--red)}
+.audit-row{padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;display:flex;gap:10px;align-items:flex-start}
+.audit-action{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;background:var(--bg2);color:var(--green2);flex-shrink:0;white-space:nowrap}
+.audit-action.MDM_FLUSH,.audit-action.MDM_RESTART,.audit-action.MDM_LOCK{color:var(--amber);border:1px solid #92400e}
+.audit-action.LOGIN,.audit-action.LOGOUT{color:var(--green)}
+.audit-detail{color:var(--green3);flex:1;font-size:11px}
+.audit-meta{color:rgba(74,222,128,.3);font-family:var(--mono);font-size:10px;text-align:right;white-space:nowrap}
+.temp-pw{background:var(--bg0);border:1px solid var(--border2);border-radius:8px;padding:14px;margin-top:10px;font-family:var(--mono);font-size:15px;color:var(--green);text-align:center;letter-spacing:.1em}
+/* ── Summary ── */
 .summary-device-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px}
 .summary-device-row{display:flex;justify-content:space-between;padding:3px 0;font-family:var(--mono)}
-.summary-device-key{color:rgba(74,222,128,.4)}
-.summary-device-val{color:var(--green3)}
-.summary-ai-text{background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--text);font-size:13px;line-height:1.7;white-space:pre-wrap;margin-bottom:16px}
-#summary-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0}
-.summary-action-btn{flex:1;padding:10px;border-radius:8px;border:none;font-size:13px;font-family:var(--sans);cursor:pointer;font-weight:600;transition:all .15s}
-.summary-action-btn.primary{background:var(--green4);color:#f0fdf4}
-.summary-action-btn.primary:hover{background:#15803d}
-.summary-action-btn.secondary{background:var(--bg2);border:1px solid var(--border2);color:var(--green2)}
-.summary-action-btn.secondary:hover{background:var(--bg3)}
+.summary-device-key{color:rgba(74,222,128,.4)}.summary-device-val{color:var(--green3)}
+.summary-ai-text{background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--text);font-size:13px;line-height:1.7;white-space:pre-wrap;margin-bottom:12px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:.3;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}
+/* ── Analyze modal ── */
+.issue-row{padding:10px 12px;border-radius:8px;margin-bottom:8px;border:1px solid}
+.issue-row.HIGH{background:#1a0505;border-color:#7f1d1d}
+.issue-row.MEDIUM{background:#1a1200;border-color:#92400e}
+.issue-row.LOW{background:#0a1a0f;border-color:var(--border2)}
+.issue-severity{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;display:inline-block;margin-bottom:6px}
+.issue-severity.HIGH{background:#7f1d1d;color:#fca5a5}
+.issue-severity.MEDIUM{background:#92400e;color:#fcd34d}
+.issue-severity.LOW{background:#14532d;color:var(--green2)}
+.issue-title{color:var(--text);font-size:13px;font-weight:600;margin-bottom:3px}
+.issue-detail{color:rgba(255,255,255,.5);font-size:12px;line-height:1.5;margin-bottom:4px}
+.issue-action{color:var(--green2);font-size:11px;font-family:var(--mono)}
+.analyze-summary{background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--text);font-size:13px;line-height:1.7;margin-bottom:16px}
+.analyze-stats{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.stat-pill{padding:5px 12px;border-radius:20px;font-family:var(--mono);font-size:12px;font-weight:700}
+.stat-pill.red{background:#1a0505;border:1px solid #7f1d1d;color:#fca5a5}
+.stat-pill.amber{background:#1a1200;border:1px solid #92400e;color:#fcd34d}
+.stat-pill.green{background:#0a1a0f;border:1px solid var(--border2);color:var(--green2)}
+.stat-pill.blue{background:#0a0f1a;border:1px solid #1e3a5f;color:#93c5fd}
 </style>
 </head>
 <body>
-<!-- SETUP -->
-<div id="setup">
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="login-screen" class="auth-screen visible">
+  <div class="bg-photo"></div>
+  <div class="bg-overlay"></div>
+  <div class="auth-card">
+    <div style="text-align:center;margin-bottom:32px">
+      <div class="pill-badge"><div class="dot" id="login-dot"></div><span id="login-status-text">ARIA v4.0 · TRSD</span></div>
+      <h1>Bob's Jamf Pro Assistant</h1>
+      <p class="subtitle">Sign in to continue</p>
+    </div>
+    <div class="field"><label class="field-label">USERNAME</label>
+      <input type="text" id="login-username" placeholder="your.username" autocomplete="username" autocapitalize="none">
+    </div>
+    <div class="field"><label class="field-label">PASSWORD</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-primary" id="btn-login" onclick="doLogin()">Sign In →</button>
+    <p class="screen-error" id="login-error"></p>
+  </div>
+</div>
+
+<!-- ══ CHANGE PASSWORD SCREEN ══ -->
+<div id="change-pw-screen" class="auth-screen">
+  <div class="bg-photo"></div>
+  <div class="bg-overlay"></div>
+  <div class="auth-card">
+    <div style="text-align:center;margin-bottom:32px">
+      <div class="pill-badge"><div class="dot"></div><span>ARIA v4.0 · Set New Password</span></div>
+      <h1>Set Your Password</h1>
+      <p class="subtitle">You're using a temporary password. Please set a new one.</p>
+    </div>
+    <div class="field"><label class="field-label">NEW PASSWORD <span>(min 8 characters)</span></label>
+      <input type="password" id="new-password" placeholder="New password" autocomplete="new-password">
+    </div>
+    <div class="field"><label class="field-label">CONFIRM PASSWORD</label>
+      <input type="password" id="confirm-password" placeholder="Confirm password" autocomplete="new-password">
+    </div>
+    <button class="btn-primary" id="btn-change-pw" onclick="doChangePassword()">Set Password →</button>
+    <p class="screen-error" id="change-pw-error"></p>
+  </div>
+</div>
+
+<!-- ══ SETUP SCREEN ══ -->
+<div id="setup" class="auth-screen">
   <div class="bg-photo"></div>
   <div class="bg-overlay"></div>
   <div id="setup-card">
     <div style="text-align:center;margin-bottom:32px">
-      <div class="pill-badge"><div class="dot" id="backend-dot"></div><span id="backend-text">ARIA v3.0</span></div>
+      <div class="pill-badge"><div class="dot" id="backend-dot"></div><span id="backend-text">ARIA v4.0 · TRSD</span></div>
       <h1>Bob's Jamf Pro Assistant</h1>
       <p class="subtitle">Automated Resolution &amp; Incident Assistant</p>
-    </div>
-    <div class="field">
-      <label class="field-label">YOUR NAME</label>
-      <select id="sel-tech">
-        <option value="">Select your name...</option>
-      </select>
     </div>
     <div class="setup-row">
       <div class="field">
@@ -196,12 +276,12 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
         <input type="text" id="setup-user" placeholder="first.last">
       </div>
     </div>
-    <button id="btn-start" disabled>Start Session →</button>
-    <p class="setup-note" id="setup-note">Checking backend connection...</p>
+    <button class="btn-primary" id="btn-start">Start Session →</button>
+    <p class="screen-note" id="setup-note">Checking backend connection...</p>
   </div>
 </div>
 
-<!-- CHAT -->
+<!-- ══ CHAT SCREEN ══ -->
 <div id="chat">
   <div id="chat-header">
     <div id="header-left">
@@ -216,6 +296,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
     <div id="header-right">
       <button class="hbtn accent" id="btn-summary" onclick="copySummary()">📋 Summary</button>
       <button class="hbtn" id="btn-fleet">🖥 Fleet</button>
+      <button class="hbtn" id="btn-admin" style="display:none" onclick="openAdmin()">⚙ Admin</button>
       <button class="hbtn" id="btn-home">⌂</button>
       <button class="hbtn" id="btn-switch">⇄</button>
     </div>
@@ -229,7 +310,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
         <div class="ptab" data-tab="log" onclick="switchTab('log')">LOG</div>
       </div>
       <div class="panel-body" id="tab-info"><div id="device-content"><div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:20px">Enter a serial or username above</div></div></div>
-      <div class="panel-body" id="tab-policies" style="display:none"><div class="panel-title">RECENT POLICIES</div><div id="policies-content"><div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:20px">No device selected</div></div></div>
+      <div class="panel-body" id="tab-policies" style="display:none"><div class="panel-title">RECENT POLICIES</div><div id="policies-content"></div></div>
       <div class="panel-body" id="tab-log" style="display:none">
         <div class="panel-title">SHIFT HANDOFF LOG</div>
         <div id="log-content"></div>
@@ -242,7 +323,7 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
         <span style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);letter-spacing:.1em">FLEET QUERIES</span>
         <div style="display:flex;align-items:center;gap:8px">
           <span id="fleet-cache-label" style="font-family:var(--mono);font-size:9px;color:rgba(74,222,128,.2)"></span>
-          <button onclick="closeFleet()" style="background:none;border:none;color:rgba(74,222,128,.3);font-size:16px;cursor:pointer;padding:0;line-height:1" title="Close fleet panel">✕</button>
+          <button onclick="closeFleet()" style="background:none;border:none;color:rgba(74,222,128,.3);font-size:16px;cursor:pointer;padding:0;line-height:1">✕</button>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:12px"><div id="fleet-content"></div></div>
@@ -275,133 +356,326 @@ select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green)!i
     </div>
   </div>
 </div>
+
+<!-- ══ MODALS ══ -->
+<!-- Summary -->
+<div id="summary-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header"><span class="modal-title">📋 Session Summary</span><button class="modal-close" onclick="closeSummary()">✕</button></div>
+    <div class="modal-body">
+      <div id="summary-generating" style="color:rgba(74,222,128,.4);font-size:13px;text-align:center;padding:30px;font-family:var(--mono)">Generating summary...</div>
+      <div id="summary-content" style="display:none">
+        <div id="summary-device-card" class="summary-device-card"></div>
+        <div id="summary-ai-text" class="summary-ai-text"></div>
+        <div id="summary-meta" style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.3);text-align:right"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="mbtn secondary" onclick="copySummaryText()">📋 Copy to clipboard</button>
+      <button class="mbtn primary" onclick="closeSummary()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Panel -->
+<div id="admin-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width:700px">
+    <div class="modal-header"><span class="modal-title">⚙ Admin Panel</span><button class="modal-close" onclick="closeAdmin()">✕</button></div>
+    <div class="admin-tabs">
+      <button class="atab active" onclick="switchAdminTab('users')">👥 Users</button>
+      <button class="atab" onclick="switchAdminTab('audit')">📋 Audit Log</button>
+    </div>
+    <div class="modal-body" id="admin-body"></div>
+  </div>
+</div>
+
 <script>
-const SYSTEM_PROMPT="";  // Loaded from config/system_prompt.txt via backend
-const ARIA_KEY=window._ARIA_KEY||"";  // Set by backend at page load
-let techName="",messages=[],deviceData=null,loading=false,fleetOpen=false,fleetSites=[];
+// ── State ─────────────────────────────────────────────────────────
+const SYSTEM_PROMPT=`You are ARIA — Automated Resolution & Incident Assistant — a Jamf Pro and macOS troubleshooting assistant for Three Rivers School District (TRSD) in Oregon.
+TRSD: ~961 Macs, Jamf Pro MDM, Jamf Connect v3.14.0, SUPER updates, ConnectWise Control, Konica Minolta printers, Securly web filter (blocks RFC1918 in Chrome), FileVault enforced, Tailscale VPN.
+YOUR JOB: Use live device data when provided. Give numbered step-by-step field instructions. Be direct and brief — techs are in the field.
+COMMON ISSUES: Policy failures→flush MDM first. SUPER not running→launchctl list|grep super. Jamf Connect loop→network/IdP or delete pref file. FileVault stuck→Secure Token, escalate to Bob. Printers gone→re-push via Self Service. Chrome+printer→Securly blocking RFC1918. ConnectWise→check agent/service/firewall.`;
 
-// ── Backend check + load config
-let _ariaConfig = {};
-async function checkBackend(){
-  try{
-    const r=await fetch("/health",{signal:AbortSignal.timeout(3000)});
-    const d=await r.json();
-    if(d.status==="ok"){
-      document.getElementById("backend-dot").className="dot";
-      document.getElementById("backend-text").textContent=`ARIA v3.0 · ${d.org||"ARIA"} · Online`;
-      document.getElementById("setup-note").textContent="Backend connected · Live Jamf data enabled";
-    }
-  }catch{
-    document.getElementById("backend-dot").className="dot red";
-    document.getElementById("backend-text").textContent="ARIA v3.0 · Offline";
-    document.getElementById("setup-note").textContent="Backend unreachable — check that aria_server.py is running";
-  }
-  // Load config (tech names, org)
-  try{
-    const r=await fetch("/api/config",{headers:{"X-ARIA-Key":window._ARIA_KEY||""}});
-    if(r.ok){
-      _ariaConfig=await r.json();
-      populateTechNames(_ariaConfig.tech_names||[]);
-      if(_ariaConfig.org_name){
-        document.title=`${_ariaConfig.org_name} · ARIA`;
-        document.querySelector("h1").textContent=`${_ariaConfig.org_name} · ARIA`;
-      }
-    }
-  }catch{}
+let sessionToken = sessionStorage.getItem("aria_token") || "";
+let currentUser  = JSON.parse(sessionStorage.getItem("aria_user") || "null");
+let techName="", messages=[], deviceData=null, loading=false, fleetOpen=false, fleetSites=[];
+
+// ── Auth helpers ──────────────────────────────────────────────────
+function authHeaders(extra={}) {
+  return {"Authorization": `Bearer ${sessionToken}`, "Content-Type": "application/json", ...extra};
 }
 
-function populateTechNames(names){
-  const sel=document.getElementById("sel-tech");
-  // Keep the first placeholder option
-  while(sel.options.length>1) sel.remove(1);
-  names.forEach(n=>{const o=document.createElement("option");o.value=n;o.textContent=n;sel.appendChild(o);});
-  // Always add Other
-  const o=document.createElement("option");o.value="Other";o.textContent="Other";sel.appendChild(o);
+function saveSession(token, user) {
+  sessionToken = token;
+  currentUser  = user;
+  sessionStorage.setItem("aria_token", token);
+  sessionStorage.setItem("aria_user", JSON.stringify(user));
 }
 
-// ── Setup
-document.getElementById("sel-tech").addEventListener("change",e=>{techName=e.target.value;document.getElementById("btn-start").disabled=!techName;});
-document.getElementById("setup-serial").addEventListener("input",e=>{e.target.value=e.target.value.toUpperCase();});
-document.getElementById("btn-start").addEventListener("click",startSession);
-
-async function startSession(){
-  const serial=document.getElementById("setup-serial").value.trim().toUpperCase();
-  const user=document.getElementById("setup-user").value.trim().toLowerCase();
-  document.getElementById("setup").style.display="none";
-  document.getElementById("chat").style.display="flex";
-  document.getElementById("header-label").textContent=`ARIA · ${techName.split(" ")[0]}`;
-  document.getElementById("greeting").textContent=`Hey ${techName.split(" ")[0]} — what are we fixing?`;
-  loadHandoffLog();
-  if(serial){document.getElementById("lookup-input").value=serial;await doLookup(serial);}
-  else if(user){document.getElementById("lookup-input").value=user;await doLookup(user);}
+function clearSession() {
+  sessionToken = "";
+  currentUser  = null;
+  sessionStorage.removeItem("aria_token");
+  sessionStorage.removeItem("aria_user");
 }
 
-// ── Tabs
-function switchTab(tab){
-  ["info","policies","log"].forEach(t=>{
-    document.getElementById(`tab-${t}`).style.display=t===tab?"block":"none";
-    document.querySelector(`.ptab[data-tab="${t}"]`).classList.toggle("active",t===tab);
+// ── Show/hide screens ─────────────────────────────────────────────
+function showScreen(id) {
+  ["login-screen","change-pw-screen","setup","chat"].forEach(s => {
+    const el = document.getElementById(s);
+    if(!el) return;
+    if(s === id) { el.classList.add("visible"); el.style.display = s==="chat" ? "flex" : ""; }
+    else         { el.classList.remove("visible"); el.style.display = "none"; }
   });
-  if(tab==="policies"&&deviceData)loadPolicies(deviceData.serial);
-  if(tab==="log")loadHandoffLog();
 }
 
-// ── Lookup
-document.getElementById("btn-lookup").addEventListener("click",()=>{const v=document.getElementById("lookup-input").value.trim();if(v)doLookup(v);});
-document.getElementById("lookup-input").addEventListener("keydown",e=>{if(e.key==="Enter"){const v=e.target.value.trim();if(v)doLookup(v);}});
-document.getElementById("lookup-input").addEventListener("input",e=>{const v=e.target.value.trim();if(/^[A-Z0-9]{8,14}$/i.test(v)&&!v.includes(".")&&!v.includes("_"))e.target.value=v.toUpperCase();});
+// ── Login ─────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  checkBackend();
+  // Enter key on login fields
+  ["login-username","login-password"].forEach(id => {
+    document.getElementById(id)?.addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
+  });
+  ["new-password","confirm-password"].forEach(id => {
+    document.getElementById(id)?.addEventListener("keydown", e => { if(e.key==="Enter") doChangePassword(); });
+  });
+  // If we have a token, verify it's still valid
+  if(sessionToken && currentUser) {
+    verifyAndRestore();
+  }
+});
 
-async function doLookup(value){
-  const isSerial=/^[A-Z0-9]{8,14}$/i.test(value)&&!value.includes(".")&&!value.includes("_");
-  if(isSerial)await lookupDevice(value.toUpperCase());
+async function checkBackend() {
+  try {
+    const r = await fetch("/health", {signal: AbortSignal.timeout(3000)});
+    const d = await r.json();
+    if(d.status === "ok") {
+      document.querySelectorAll(".dot").forEach(el => el.className = "dot");
+      document.getElementById("login-status-text").textContent = "ARIA v4.0 · TRSD · Online";
+    }
+  } catch {
+    document.querySelectorAll(".dot").forEach(el => el.className = "dot red");
+    document.getElementById("login-status-text").textContent = "ARIA v4.0 · TRSD · Offline";
+  }
+}
+
+async function verifyAndRestore() {
+  try {
+    const r = await fetch("/api/auth/me", {headers: {"Authorization": `Bearer ${sessionToken}`}});
+    if(r.ok) {
+      // Token still valid — go straight to setup
+      techName = currentUser.display_name;
+      showScreen("setup");
+      document.getElementById("backend-text").textContent = `ARIA v4.0 · ${techName} · Online`;
+      document.getElementById("setup-note").textContent = `Welcome back, ${techName.split(" ")[0]}`;
+      document.getElementById("btn-start").disabled = false;
+      if(currentUser.role === "admin") document.getElementById("btn-admin").style.display = "";
+    } else {
+      clearSession();
+      showScreen("login-screen");
+    }
+  } catch {
+    clearSession();
+    showScreen("login-screen");
+  }
+}
+
+async function doLogin() {
+  const username = document.getElementById("login-username").value.trim().toLowerCase();
+  const password = document.getElementById("login-password").value;
+  const errEl    = document.getElementById("login-error");
+  const btn      = document.getElementById("btn-login");
+  errEl.textContent = "";
+  if(!username || !password) { errEl.textContent = "Enter your username and password"; return; }
+  btn.textContent = "Signing in..."; btn.disabled = true;
+  try {
+    const r = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({username, password}),
+    });
+    const d = await r.json();
+    if(!r.ok) { errEl.textContent = d.error || "Login failed"; return; }
+    saveSession(d.token, {username: d.username, display_name: d.display_name, role: d.role});
+    techName = d.display_name;
+    document.getElementById("login-password").value = "";
+    if(d.must_change_password) {
+      showScreen("change-pw-screen");
+    } else {
+      afterLogin();
+    }
+  } catch(e) {
+    errEl.textContent = "Cannot reach server";
+  } finally {
+    btn.textContent = "Sign In →"; btn.disabled = false;
+  }
+}
+
+async function doChangePassword() {
+  const np   = document.getElementById("new-password").value;
+  const cp   = document.getElementById("confirm-password").value;
+  const errEl = document.getElementById("change-pw-error");
+  const btn   = document.getElementById("btn-change-pw");
+  errEl.textContent = "";
+  if(np.length < 8) { errEl.textContent = "Password must be at least 8 characters"; return; }
+  if(np !== cp)     { errEl.textContent = "Passwords don't match"; return; }
+  btn.textContent = "Saving..."; btn.disabled = true;
+  try {
+    const r = await fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({new_password: np}),
+    });
+    const d = await r.json();
+    if(!r.ok) { errEl.textContent = d.error || "Failed to change password"; return; }
+    // Update token
+    saveSession(d.token, currentUser);
+    currentUser.must_change_password = false;
+    sessionStorage.setItem("aria_user", JSON.stringify(currentUser));
+    afterLogin();
+  } catch(e) {
+    errEl.textContent = "Server error";
+  } finally {
+    btn.textContent = "Set Password →"; btn.disabled = false;
+  }
+}
+
+function afterLogin() {
+  showScreen("setup");
+  document.getElementById("backend-text").textContent = `ARIA v4.0 · ${techName} · Online`;
+  document.getElementById("setup-note").textContent = `Signed in as ${techName} · Live Jamf data enabled`;
+  document.getElementById("btn-start").disabled = false;
+  if(currentUser?.role === "admin") document.getElementById("btn-admin").style.display = "";
+  // Silently pre-warm fleet cache in background
+  fetch("/api/fleet/warm", {method:"POST", headers: authHeaders()}).catch(()=>{});
+}
+</script>
+
+<script>
+// ── Setup & navigation ────────────────────────────────────────────
+document.getElementById("setup-serial").addEventListener("input", e => { e.target.value = e.target.value.toUpperCase(); });
+document.getElementById("btn-start").addEventListener("click", startSession);
+document.getElementById("btn-home").addEventListener("click", goHome);
+document.getElementById("btn-switch").addEventListener("click", switchUser);
+
+async function startSession() {
+  const serial = document.getElementById("setup-serial").value.trim().toUpperCase();
+  const user   = document.getElementById("setup-user").value.trim().toLowerCase();
+  showScreen("chat");
+  document.getElementById("chat").style.display = "flex";
+  document.getElementById("header-label").textContent = `ARIA · ${techName.split(" ")[0]}`;
+  document.getElementById("greeting").textContent = `Hey ${techName.split(" ")[0]} — what are we fixing?`;
+  loadHandoffLog();
+  if(serial) { document.getElementById("lookup-input").value = serial; await doLookup(serial); }
+  else if(user) { document.getElementById("lookup-input").value = user; await doLookup(user); }
+}
+
+function goHome() {
+  messages = []; deviceData = null;
+  document.getElementById("messages").innerHTML = emptyStateHTML();
+  document.getElementById("device-panel").classList.remove("visible");
+  document.getElementById("device-content").innerHTML = "";
+  document.getElementById("lookup-input").value = "";
+  document.getElementById("msg-input").value = "";
+  document.getElementById("btn-send").disabled = true;
+  switchTab("info");
+  closeFleet();
+}
+
+async function switchUser() {
+  // Logout on server
+  try { await fetch("/api/auth/logout", {method:"POST", headers: authHeaders()}); } catch {}
+  clearSession();
+  messages = []; deviceData = null; techName = "";
+  document.getElementById("login-username").value = "";
+  document.getElementById("login-password").value = "";
+  document.getElementById("login-error").textContent = "";
+  showScreen("login-screen");
+}
+
+function emptyStateHTML() {
+  return `<div id="empty-state"><div class="empty-icon">⌘</div><p id="greeting">Hey ${techName.split(" ")[0]} — what are we fixing?</p><div class="chips">
+    <span class="chip" onclick="chipClick(this)">Mac won't check into Jamf</span>
+    <span class="chip" onclick="chipClick(this)">Policy keeps failing</span>
+    <span class="chip" onclick="chipClick(this)">Printer disappeared</span>
+    <span class="chip" onclick="chipClick(this)">SUPER not running</span>
+    <span class="chip" onclick="chipClick(this)">ConnectWise won't connect</span>
+    <span class="chip" onclick="chipClick(this)">FileVault issue</span>
+    <span class="chip" onclick="chipClick(this)">Jamf Connect login loop</span>
+    <span class="chip" onclick="chipClick(this)">Device stale in Jamf</span>
+  </div></div>`;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  ["info","policies","log"].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = t === tab ? "block" : "none";
+    document.querySelector(`.ptab[data-tab="${t}"]`).classList.toggle("active", t === tab);
+  });
+  if(tab === "policies" && deviceData) loadPolicies(deviceData.serial);
+  if(tab === "log") loadHandoffLog();
+}
+
+// ── Device lookup ─────────────────────────────────────────────────
+document.getElementById("btn-lookup").addEventListener("click", () => { const v = document.getElementById("lookup-input").value.trim(); if(v) doLookup(v); });
+document.getElementById("lookup-input").addEventListener("keydown", e => { if(e.key==="Enter") { const v=e.target.value.trim(); if(v) doLookup(v); } });
+document.getElementById("lookup-input").addEventListener("input", e => { const v=e.target.value.trim(); if(/^[A-Z0-9]{8,14}$/i.test(v)&&!v.includes(".")&&!v.includes("_")) e.target.value=v.toUpperCase(); });
+
+async function doLookup(value) {
+  const isSerial = /^[A-Z0-9]{8,14}$/i.test(value) && !value.includes(".") && !value.includes("_");
+  if(isSerial) await lookupDevice(value.toUpperCase());
   else await lookupUser(value.toLowerCase());
 }
 
-async function lookupDevice(serial){
+async function lookupDevice(serial) {
   showPanel(`<div style="color:rgba(74,222,128,.4);text-align:center;padding:20px;font-size:12px">Looking up ${serial}...</div>`);
-  try{
-    const r=await fetch(`/api/device/${serial}`,{headers:{"X-ARIA-Key":ARIA_KEY}});
-    if(!r.ok){const e=await r.json();throw new Error(e.error||"Not found");}
-    deviceData=await r.json();
+  try {
+    const r = await fetch(`/api/device/${serial}`, {headers: authHeaders()});
+    if(r.status === 401) { switchUser(); return; }
+    if(!r.ok) { const e=await r.json(); throw new Error(e.error||"Not found"); }
+    deviceData = await r.json();
     renderDeviceCard(deviceData);
-  }catch(e){deviceData=null;showPanel(`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`);}
+  } catch(e) { deviceData=null; showPanel(`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`); }
 }
 
-async function lookupUser(username){
+async function lookupUser(username) {
   showPanel(`<div style="color:rgba(74,222,128,.4);text-align:center;padding:20px;font-size:12px">Looking up ${username}...</div>`);
-  try{
-    const r=await fetch(`/api/user/${username}`,{headers:{"X-ARIA-Key":ARIA_KEY}});
-    if(!r.ok)throw new Error("User not found");
-    const data=await r.json();
-    if(!data.devices||data.devices.length===0){showPanel(`<div style="color:var(--amber);font-size:12px">⚠ No devices found for ${username}</div>`);return;}
-    if(data.devices.length===1){await lookupDevice(data.devices[0].serial_number||data.devices[0].serial);return;}
-    let html=`<div class="panel-title">DEVICES FOR ${username.toUpperCase()}</div>`;
-    data.devices.forEach(d=>{html+=`<div class="device-pick" onclick="lookupDevice('${d.serial_number||d.serial}')"><div class="device-pick-name">${d.name||d.serial_number||d.serial}</div><div class="device-pick-meta">${d.model||""} · ${d.serial_number||d.serial}</div></div>`;});
+  try {
+    const r = await fetch(`/api/user/${username}`, {headers: authHeaders()});
+    if(r.status === 401) { switchUser(); return; }
+    if(!r.ok) throw new Error("User not found");
+    const data = await r.json();
+    if(!data.devices||!data.devices.length) { showPanel(`<div style="color:var(--amber);font-size:12px">⚠ No devices found for ${username}</div>`); return; }
+    if(data.devices.length === 1) { await lookupDevice(data.devices[0].serial_number||data.devices[0].serial); return; }
+    let html = `<div class="panel-title">DEVICES FOR ${username.toUpperCase()}</div>`;
+    data.devices.forEach(d => { html += `<div class="device-pick" onclick="lookupDevice('${d.serial_number||d.serial}')"><div class="device-pick-name">${d.name||d.serial_number||d.serial}</div><div class="device-pick-meta">${d.model||""} · ${d.serial_number||d.serial}</div></div>`; });
     showPanel(html);
-  }catch(e){showPanel(`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`);}
+  } catch(e) { showPanel(`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`); }
 }
 
-function showPanel(html){
-  // Close fleet panel when a device is selected
+function showPanel(html) {
   closeFleet();
   document.getElementById("device-panel").classList.add("visible");
-  document.getElementById("device-content").innerHTML=html;
+  document.getElementById("device-content").innerHTML = html;
   switchTab("info");
 }
 </script>
+
 <script>
-// ── Device card
+// ── Device card ───────────────────────────────────────────────────
 function checkinHours(ts){if(!ts)return null;return(Date.now()-new Date(ts).getTime())/3.6e6;}
 function checkinColor(h){if(h===null)return"var(--amber)";return h<24?"var(--green)":h<168?"var(--amber)":"var(--red)";}
 function checkinLabel(ts){if(!ts)return"Unknown";const h=Math.round(checkinHours(ts));return h<24?`${h}h ago`:`${Math.round(h/24)}d ago`;}
 function isOlderThan14Days(s){try{return(Date.now()-new Date(s).getTime())/8.64e7>14;}catch{return false;}}
 function eaRow(label,value,cls){const ic=cls==="ok"?"✓ ":cls==="warn"?"✗ ":cls==="caution"?"⚠ ":"";return`<div class="drow"><span class="dk">${label}</span><span class="${cls?`dv ${cls}`:"dv"}">${ic}${value}</span></div>`;}
 
-function renderDeviceCard(d){
+function renderDeviceCard(d) {
   const h=checkinHours(d.last_check_in),cc=checkinColor(h),ea=d.extension_attributes||{};
   const isStale=h!==null&&h>168;
-  let html=`<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div><div class="device-name">${d.name||d.serial}</div><div class="device-user">${d.username||ea["Last User to login"]||"No user assigned"}</div></div><div style="width:8px;height:8px;border-radius:50%;background:${cc};box-shadow:0 0 6px ${cc}"></div></div>`;
-  if(isStale)html+=`<div class="stale-warn">⚠ Stale — last seen ${Math.round(h/24)}d ago. MDM commands may not reach this device.</div>`;
+  let html=`<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <div><div class="device-name">${d.name||d.serial}</div><div class="device-user">${d.username||ea["Last User to login"]||"No user assigned"}</div></div>
+    <div style="width:8px;height:8px;border-radius:50%;background:${cc};box-shadow:0 0 6px ${cc}"></div></div>`;
+  if(isStale) html+=`<div class="stale-warn">⚠ Stale — last seen ${Math.round(h/24)}d ago. MDM commands may not reach this device.</div>`;
   html+=`<div class="drow"><span class="dk">Model</span><span class="dv">${d.model||"—"}</span></div>
     <div class="drow"><span class="dk">macOS</span><span class="dv">${d.os_version||"—"}</span></div>
     <div class="drow"><span class="dk">Serial</span><span class="dv">${d.serial}</span></div>
@@ -420,10 +694,7 @@ function renderDeviceCard(d){
   const ga=ea["OS - Guest Account Disabled"],pg=ea["Jamf Protect - Smart Groups"],cu=ea["Update Chrome"];
 
   html+=`<div class="ea-section"><div class="ea-title">LAST USER &amp; NETWORK</div>`;
-  if(lu)html+=eaRow("Last login",lu,false);
-  if(net)html+=eaRow("Network",net,false);
-  html+=`</div>`;
-
+  if(lu)html+=eaRow("Last login",lu,false);if(net)html+=eaRow("Network",net,false);html+=`</div>`;
   html+=`<div class="ea-section"><div class="ea-title">SUPER</div>`;
   if(sc)html+=eaRow("Compliant",sc,sc.toLowerCase().includes("non")?"warn":"ok");
   if(ss)html+=eaRow("Status",ss,ss.toLowerCase()!=="ok"?"warn":"ok");
@@ -433,40 +704,88 @@ function renderDeviceCard(d){
   if(soft)html+=eaRow("Soft deadline",soft+"h",parseInt(soft)<24?"warn":false);
   if(sd&&sd!=="0")html+=eaRow("Deferrals",sd,parseInt(sd)>5?"warn":"caution");
   html+=`</div>`;
-
   html+=`<div class="ea-section"><div class="ea-title">JAMF CONNECT</div>`;
   if(jcv!==null){const m=!jcv||jcv==="Does not exist";html+=eaRow("Version",m?"Not installed":jcv,m?"warn":"ok");}
   if(jcd&&jcd!=="Does not exist")html+=eaRow("Display",jcd,false);
   if(jcu!==null)html+=eaRow("Users",jcu,jcu==="0"?"caution":"ok");
   html+=`</div>`;
-
   html+=`<div class="ea-section"><div class="ea-title">SECURITY &amp; OTHER</div>`;
   if(pg)html+=eaRow("Jamf Protect",pg,"ok");
   if(ga)html+=eaRow("Guest account",ga.toLowerCase().includes("fail")?"Enabled (risk)":"Disabled",ga.toLowerCase().includes("fail")?"warn":"ok");
   if(cu&&cu.trim())html+=eaRow("Chrome update",cu,"caution");
   html+=`</div>`;
-
+  // Protect section — populated async after render
+  html+=`<div class="ea-section" id="protect-section"><div class="ea-title">JAMF PROTECT</div>
+    <div id="protect-content" style="color:rgba(74,222,128,.3);font-size:11px;font-family:var(--mono)">Loading...</div>
+  </div>`;
   html+=`<div class="action-row">
     <button class="action-btn" onclick="sendAction('flush-mdm','Flush MDM')">Flush MDM</button>
     <button class="action-btn danger" onclick="sendAction('restart','Restart')">Restart</button>
     <button class="action-btn danger" onclick="sendAction('lock','Lock')">Lock</button>
+  </div>
+  <div class="action-row" style="margin-top:5px">
+    <button class="action-btn" style="background:rgba(99,102,241,.1);border-color:#4338ca;color:#a5b4fc" onclick="runAnalysis()">⚠ Analyze</button>
   </div></div>`;
-
-  document.getElementById("device-content").innerHTML=html;
+  document.getElementById("device-content").innerHTML = html;
   document.getElementById("device-panel").classList.add("visible");
+  // Load Protect data async after card renders
+  loadProtectSection(d.serial);
 }
 
-async function sendAction(action,label){
-  if(!deviceData)return;
-  try{
-    const r=await fetch(`/api/device/${deviceData.serial}/${action}`,{method:"POST",headers:{"X-ARIA-Key":ARIA_KEY}});
-    const d=await r.json();
-    appendMessage("assistant",d.success?`✓ ${label} sent to ${deviceData.name||deviceData.serial}.`:`⚠ ${label}: ${d.note||d.error||"Check Jamf Pro."}`);
-  }catch{appendMessage("assistant",`⚠ Could not send ${label} — backend error.`);}
+async function loadProtectSection(serial) {
+  const el = document.getElementById("protect-content");
+  if(!el) return;
+  try {
+    const r = await fetch(`/api/device/${serial}/protect`, {headers: authHeaders()});
+    if(!r.ok) { el.innerHTML = '<span style="color:rgba(74,222,128,.3)">Unavailable</span>'; return; }
+    const d = await r.json();
+    if(!d.found) { el.innerHTML = eaRow("Status","Not in Protect","warn"); return; }
+
+    // Connection status
+    const connColor = d.connection==="Connected" ? "ok" : (d.hours_offline > 24 ? "warn" : "caution");
+    const connLabel = d.connection==="Connected" ? "✓ Connected" :
+      (d.hours_offline ? `Offline ${d.hours_offline > 48 ? Math.round(d.hours_offline/24)+"d" : Math.round(d.hours_offline)+"h"}` : "Disconnected");
+
+    let html = eaRow("Status", connLabel, connColor);
+    if(d.version)     html += eaRow("Version", d.version, false);
+    if(d.plan)        html += eaRow("Plan", d.plan, false);
+
+    // Insights
+    const total = (d.insights_pass||0) + (d.insights_fail||0);
+    if(total > 0) {
+      const cls = d.insights_fail > 10 ? "warn" : d.insights_fail > 3 ? "caution" : "ok";
+      html += eaRow("Insights", `${d.insights_pass}✓ ${d.insights_fail}✗`, cls);
+    }
+
+    // Open alerts
+    if(d.open_alerts && d.open_alerts.length > 0) {
+      html += `<div class="drow"><span class="dk">Open alerts</span><span class="dv warn">🔴 ${d.open_alerts.length} unresolved</span></div>`;
+      d.open_alerts.slice(0,2).forEach(a => {
+        const sevColor = a.severity==="High"||a.severity==="Critical" ? "warn" : "caution";
+        html += eaRow("", `${a.severity} — ${a.eventType}`, sevColor);
+      });
+    } else {
+      html += eaRow("Alerts", "✓ None open", "ok");
+    }
+
+    el.innerHTML = html;
+  } catch(e) {
+    if(el) el.innerHTML = '<span style="color:rgba(74,222,128,.3)">Unavailable</span>';
+  }
+}
+
+async function sendAction(action, label) {  if(!deviceData) return;
+  try {
+    const r = await fetch(`/api/device/${deviceData.serial}/${action}`, {method:"POST", headers: authHeaders()});
+    if(r.status===401){switchUser();return;}
+    const d = await r.json();
+    appendMessage("assistant", d.success ? `✓ ${label} sent to ${deviceData.name||deviceData.serial}.` : `⚠ ${label}: ${d.note||d.error||"Check Jamf Pro."}`);
+  } catch { appendMessage("assistant", `⚠ Could not send ${label} — backend error.`); }
 }
 </script>
+
 <script>
-// ── Policies
+// ── Policies ──────────────────────────────────────────────────────
 let policyOffset=0,policyTotal=0,policySerial=null;
 async function loadPolicies(serial,append=false){
   const el=document.getElementById("policies-content");
@@ -474,14 +793,14 @@ async function loadPolicies(serial,append=false){
   if(!append){policyOffset=0;el.innerHTML='<div style="color:rgba(74,222,128,.4);text-align:center;padding:20px;font-size:12px">Loading...</div>';}
   else document.getElementById("btn-load-more-policies")?.remove();
   try{
-    const r=await fetch(`/api/device/${serial}/policies?offset=${policyOffset}&limit=15`,{headers:{"X-ARIA-Key":ARIA_KEY}});
+    const r=await fetch(`/api/device/${serial}/policies?offset=${policyOffset}&limit=15`,{headers:authHeaders()});
+    if(r.status===401){switchUser();return;}
     if(!r.ok)throw new Error("Could not load policies");
     const data=await r.json();
-    policyTotal=data.total||0;
-    policyOffset+=(data.policy_logs||[]).length;
+    policyTotal=data.total||0;policyOffset+=(data.policy_logs||[]).length;
     const logs=data.policy_logs||[];
     if(!append)el.innerHTML="";
-    if(logs.length===0&&!append){el.innerHTML='<div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:20px">No policy history</div>';return;}
+    if(!logs.length&&!append){el.innerHTML='<div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:20px">No policy history</div>';return;}
     const frag=document.createDocumentFragment();
     logs.forEach(p=>{
       const s=(p.status||"").toLowerCase();
@@ -499,49 +818,39 @@ async function loadPolicies(serial,append=false){
       more.style.cssText="width:100%;margin-top:10px;padding:8px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--green2);font-size:11px;font-family:var(--mono);cursor:pointer";
       more.onclick=()=>loadPolicies(policySerial,true);el.appendChild(more);
     }else{
-      const done=document.createElement("div");
-      done.style.cssText="text-align:center;color:rgba(74,222,128,.25);font-size:10px;font-family:var(--mono);padding:8px";
+      const done=document.createElement("div");done.style.cssText="text-align:center;color:rgba(74,222,128,.25);font-size:10px;font-family:var(--mono);padding:8px";
       done.textContent=`— all ${policyTotal} entries shown —`;el.appendChild(done);
     }
   }catch(e){el.innerHTML=`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`;}
 }
 
-// ── Handoff log (server-side — shared across all techs)
+// ── Handoff log ───────────────────────────────────────────────────
 async function loadHandoffLog(){
   try{
-    // If a device is selected, filter log to that device
-    const serial = deviceData ? deviceData.serial : "";
-    const url = serial ? `/api/log?device=${serial}` : "/api/log";
-    const r=await fetch(url,{headers:{"X-ARIA-Key":ARIA_KEY}});
-    const d=await r.json();
-    renderLog(d.entries||[], serial);
-  }catch(e){renderLog([]);}
+    const serial=deviceData?deviceData.serial:"";
+    const url=serial?`/api/log?device=${serial}`:"/api/log";
+    const r=await fetch(url,{headers:authHeaders()});
+    if(r.status===401){switchUser();return;}
+    const d=await r.json();renderLog(d.entries||[],serial);
+  }catch{renderLog([]);}
 }
 
-function renderLog(entries, device){
+function renderLog(entries,device){
   const el=document.getElementById("log-content");
-  const header = device
-    ? `<div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);margin-bottom:8px;letter-spacing:.08em">NOTES FOR ${device} <span style="cursor:pointer;color:rgba(74,222,128,.5)" onclick="loadAllLog()">· show all</span></div>`
-    : `<div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);margin-bottom:8px;letter-spacing:.08em">ALL RECENT NOTES</div>`;
-  if(!entries.length){
-    el.innerHTML=header+'<div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:10px 0">'+(device?"No notes for this device yet":"No entries yet")+'</div>';
-    return;
-  }
-  // entries from server are in oldest-first order; display newest first
-  const displayed = entries.slice().reverse().slice(0, 50);
-  // We need the original index in the full array for delete/edit
-  // Store full entries globally so we can reference by position
-  window._logEntries = entries;
-  el.innerHTML = header + displayed.map((e, displayIdx) => {
-    const origIdx = entries.length - 1 - displayIdx;
-    const edited = e.edited ? ' <span style="color:rgba(74,222,128,.3);font-size:9px">(edited)</span>' : '';
-    return `<div class="log-entry" id="log-entry-${origIdx}">
-      <div class="log-entry-header">
-        <span class="log-tech">${e.tech}</span>
+  const header=device
+    ?`<div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);margin-bottom:8px">NOTES FOR ${device} <span style="cursor:pointer;color:rgba(74,222,128,.5)" onclick="loadAllLog()">· show all</span></div>`
+    :`<div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);margin-bottom:8px">ALL RECENT NOTES</div>`;
+  if(!entries.length){el.innerHTML=header+`<div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:10px 0">${device?"No notes for this device yet":"No entries yet"}</div>`;return;}
+  window._logEntries=entries;
+  el.innerHTML=header+entries.slice().reverse().slice(0,50).map((e,i)=>{
+    const origIdx=entries.length-1-i;
+    const edited=e.edited?' <span style="color:rgba(74,222,128,.3);font-size:9px">(edited)</span>':'';
+    return`<div class="log-entry" id="log-entry-${origIdx}">
+      <div class="log-entry-header"><span class="log-tech">${e.tech}</span>
         <div style="display:flex;align-items:center;gap:6px">
           <span class="log-time">${new Date(e.ts).toLocaleString([],{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
-          <button onclick="startEditLog(${origIdx})" style="background:none;border:none;color:rgba(74,222,128,.3);font-size:11px;cursor:pointer;padding:0;line-height:1" title="Edit">✏</button>
-          <button onclick="deleteLog(${origIdx})" style="background:none;border:none;color:rgba(248,113,113,.4);font-size:11px;cursor:pointer;padding:0;line-height:1" title="Delete">✕</button>
+          <button onclick="startEditLog(${origIdx})" style="background:none;border:none;color:rgba(74,222,128,.3);font-size:11px;cursor:pointer;padding:0" title="Edit">✏</button>
+          <button onclick="deleteLog(${origIdx})" style="background:none;border:none;color:rgba(248,113,113,.4);font-size:11px;cursor:pointer;padding:0" title="Delete">✕</button>
         </div>
       </div>
       <div class="log-text" id="log-text-${origIdx}">${e.text.replace(/</g,"&lt;")}${edited}</div>
@@ -551,28 +860,18 @@ function renderLog(entries, device){
 }
 
 async function loadAllLog(){
-  try{
-    const r=await fetch("/api/log",{headers:{"X-ARIA-Key":ARIA_KEY}});
-    const d=await r.json();
-    renderLog(d.entries||[], "");
-  }catch(e){renderLog([]);}
+  try{const r=await fetch("/api/log",{headers:authHeaders()});const d=await r.json();renderLog(d.entries||[],"");}catch{renderLog([]);}
 }
 
 async function deleteLog(idx){
   if(!confirm("Delete this note?"))return;
-  try{
-    await fetch(`/api/log/${idx}`,{method:"DELETE",headers:{"X-ARIA-Key":ARIA_KEY}});
-    await loadHandoffLog();
-  }catch(e){console.error("Delete failed:",e);}
+  try{await fetch(`/api/log/${idx}`,{method:"DELETE",headers:authHeaders()});await loadHandoffLog();}catch{}
 }
 
 function startEditLog(idx){
-  const entry = window._logEntries && window._logEntries[idx];
-  if(!entry)return;
-  const textEl = document.getElementById(`log-text-${idx}`);
-  if(!textEl)return;
-  textEl.innerHTML=`
-    <textarea id="edit-area-${idx}" style="width:100%;min-height:60px;padding:6px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:11px;font-family:var(--sans);resize:none">${entry.text.replace(/</g,"&lt;")}</textarea>
+  const entry=window._logEntries&&window._logEntries[idx];if(!entry)return;
+  const el=document.getElementById(`log-text-${idx}`);if(!el)return;
+  el.innerHTML=`<textarea id="edit-area-${idx}" style="width:100%;min-height:60px;padding:6px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:11px;font-family:var(--sans);resize:none">${entry.text.replace(/</g,"&lt;")}</textarea>
     <div style="display:flex;gap:6px;margin-top:4px">
       <button onclick="saveEditLog(${idx})" style="flex:1;padding:5px;border-radius:5px;border:none;background:var(--green4);color:#f0fdf4;font-size:11px;cursor:pointer">Save</button>
       <button onclick="loadHandoffLog()" style="flex:1;padding:5px;border-radius:5px;border:1px solid var(--border);background:none;color:rgba(74,222,128,.5);font-size:11px;cursor:pointer">Cancel</button>
@@ -581,118 +880,23 @@ function startEditLog(idx){
 }
 
 async function saveEditLog(idx){
-  const ta = document.getElementById(`edit-area-${idx}`);
-  if(!ta)return;
-  const text = ta.value.trim();
-  if(!text)return;
-  try{
-    await fetch(`/api/log/${idx}`,{method:"PATCH",headers:{"Content-Type":"application/json","X-ARIA-Key":ARIA_KEY},body:JSON.stringify({text})});
-    await loadHandoffLog();
-  }catch(e){console.error("Edit failed:",e);}
+  const ta=document.getElementById(`edit-area-${idx}`);if(!ta)return;
+  const text=ta.value.trim();if(!text)return;
+  try{await fetch(`/api/log/${idx}`,{method:"PATCH",headers:authHeaders(),body:JSON.stringify({text})});await loadHandoffLog();}catch{}
 }
 
 async function addLogEntry(){
   const text=document.getElementById("log-note").value.trim();if(!text)return;
-  const btn=document.getElementById("log-add-btn");
-  btn.textContent="Saving...";btn.disabled=true;
+  const btn=document.getElementById("log-add-btn");btn.textContent="Saving...";btn.disabled=true;
   try{
-    await fetch("/api/log",{method:"POST",headers:{"Content-Type":"application/json","X-ARIA-Key":ARIA_KEY},body:JSON.stringify({tech:techName,text,ts:Date.now(),device:deviceData?(deviceData.name||deviceData.serial):null})});
-    document.getElementById("log-note").value="";
-    await loadHandoffLog();
-  }catch(e){console.error("Log save failed:",e);}
-  finally{btn.textContent="Add Note";btn.disabled=false;}
-}
-
-// ── Navigation
-document.getElementById("btn-home").addEventListener("click",goHome);
-document.getElementById("btn-switch").addEventListener("click",switchUser);
-// ── Summary (called via onclick)
-
-function goHome(){
-  messages=[];deviceData=null;
-  document.getElementById("messages").innerHTML=emptyStateHTML();
-  document.getElementById("device-panel").classList.remove("visible");
-  document.getElementById("device-content").innerHTML="";
-  document.getElementById("lookup-input").value="";
-  document.getElementById("msg-input").value="";
-  document.getElementById("btn-send").disabled=true;
-  switchTab("info");
-}
-
-function switchUser(){
-  messages=[];deviceData=null;techName="";
-  document.getElementById("setup").style.display="flex";
-  document.getElementById("chat").style.display="none";
-  document.getElementById("sel-tech").value="";
-  document.getElementById("setup-serial").value="";
-  document.getElementById("setup-user").value="";
-  document.getElementById("btn-start").disabled=true;
-  checkBackend();
-}
-
-function emptyStateHTML(){
-  return`<div id="empty-state"><div class="empty-icon">⌘</div><p id="greeting">Hey ${techName.split(" ")[0]} — what are we fixing?</p><div class="chips"><span class="chip" onclick="chipClick(this)">Mac won't check into Jamf</span><span class="chip" onclick="chipClick(this)">Policy keeps failing</span><span class="chip" onclick="chipClick(this)">Printer disappeared</span><span class="chip" onclick="chipClick(this)">SUPER not running</span><span class="chip" onclick="chipClick(this)">ConnectWise won't connect</span><span class="chip" onclick="chipClick(this)">FileVault issue</span><span class="chip" onclick="chipClick(this)">Jamf Connect login loop</span><span class="chip" onclick="chipClick(this)">Device stale in Jamf</span></div></div>`;
+    await fetch("/api/log",{method:"POST",headers:authHeaders(),body:JSON.stringify({text,ts:Date.now(),device:deviceData?(deviceData.name||deviceData.serial):null})});
+    document.getElementById("log-note").value="";await loadHandoffLog();
+  }catch{}finally{btn.textContent="Add Note";btn.disabled=false;}
 }
 </script>
+
 <script>
-// ── Summary
-let lastSummaryText="";
-
-function closeSummary(){document.getElementById("summary-modal").classList.remove("visible");}
-
-async function copySummaryText(){
-  if(!lastSummaryText)return;
-  try{
-    await navigator.clipboard.writeText(lastSummaryText);
-    const btn=document.querySelector(".summary-action-btn.secondary");
-    btn.textContent="✓ Copied!";setTimeout(()=>{btn.textContent="📋 Copy to clipboard";},2000);
-  }catch(e){console.error("Copy failed",e);}
-}
-
-async function copySummary(){
-  if(!messages.length){
-    const btn=document.getElementById("btn-summary");
-    btn.textContent="No chat yet";
-    setTimeout(()=>{btn.textContent="📋 Summary";},2000);
-    return;
-  }
-  // Show modal in loading state
-  document.getElementById("summary-modal").classList.add("visible");
-  document.getElementById("summary-generating").style.display="block";
-  document.getElementById("summary-content").style.display="none";
-
-  // Build device section
-  let deviceHtml="<div style='color:rgba(74,222,128,.3);font-size:12px'>No device selected this session</div>";
-  let deviceLine="";
-  if(deviceData){
-    const h=deviceData.last_check_in?Math.round(checkinHours(deviceData.last_check_in)):null;
-    deviceLine=`Device: ${deviceData.name||deviceData.serial} (${deviceData.model||""}, macOS ${deviceData.os_version||""}, ${deviceData.site||"unknown site"})`;
-    deviceHtml=`
-      <div class="summary-device-row"><span class="summary-device-key">Device</span><span class="summary-device-val">${deviceData.name||deviceData.serial}</span></div>
-      <div class="summary-device-row"><span class="summary-device-key">Model</span><span class="summary-device-val">${deviceData.model||"—"}</span></div>
-      <div class="summary-device-row"><span class="summary-device-key">macOS</span><span class="summary-device-val">${deviceData.os_version||"—"}</span></div>
-      <div class="summary-device-row"><span class="summary-device-key">Serial</span><span class="summary-device-val">${deviceData.serial}</span></div>
-      <div class="summary-device-row"><span class="summary-device-key">Site</span><span class="summary-device-val">${deviceData.site||"—"}</span></div>
-      <div class="summary-device-row"><span class="summary-device-key">User</span><span class="summary-device-val">${deviceData.username||"—"}</span></div>
-      <div class="summary-device-row"><span class="summary-device-key">Last check-in</span><span class="summary-device-val">${h!==null?(h<24?`${h}h ago`:`${Math.round(h/24)}d ago`):"—"}</span></div>`;
-  }
-  try{
-    const convo=messages.map(m=>`${m.role==="user"?techName:"ARIA"}: ${m.content}`).join("\n\n");
-    const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","X-ARIA-Key":ARIA_KEY},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:400,messages:[{role:"user",content:`Summarize this tech support session in 3-5 sentences for a help desk ticket. Be specific: include the problem, what was tried, and the outcome or next step.\n\n${deviceLine}\n\n${convo}`}]})});
-    const data=await r.json();
-    const aiText=data.content?.find(b=>b.type==="text")?.text||"Could not generate summary.";
-    lastSummaryText=`ARIA Session Summary — ${new Date().toLocaleString()}\nTech: ${techName}\n${deviceLine}\n\n${aiText}`;
-    document.getElementById("summary-generating").style.display="none";
-    document.getElementById("summary-device-card").innerHTML=deviceHtml;
-    document.getElementById("summary-ai-text").textContent=aiText;
-    document.getElementById("summary-meta").textContent=`Generated ${new Date().toLocaleString()} · Tech: ${techName}`;
-    document.getElementById("summary-content").style.display="block";
-  }catch(e){
-    document.getElementById("summary-generating").textContent="⚠ Could not generate summary — check backend.";
-  }
-}
-
-// ── Messaging
+// ── Chat messaging ────────────────────────────────────────────────
 const msgInput=document.getElementById("msg-input"),btnSend=document.getElementById("btn-send");
 msgInput.addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";btnSend.disabled=!e.target.value.trim()||loading;});
 msgInput.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}});
@@ -716,11 +920,9 @@ Network: ${ea["Network Interface Details"]||"unknown"}
 
 function appendMessage(role,text){
   document.getElementById("empty-state")?.remove();
-  const wrap=document.createElement("div");
-  wrap.className=`msg-wrap ${role==="user"?"user":""}`;
+  const wrap=document.createElement("div");wrap.className=`msg-wrap ${role==="user"?"user":""}`;
   wrap.innerHTML=`<div class="avatar ${role==="user"?"tech":"ai"}">${role==="user"?techName.charAt(0).toUpperCase():"A"}</div><div class="bubble ${role==="user"?"user":"ai"}">${text.replace(/</g,"&lt;")}</div>`;
-  document.getElementById("messages").appendChild(wrap);
-  wrap.scrollIntoView({behavior:"smooth",block:"end"});
+  document.getElementById("messages").appendChild(wrap);wrap.scrollIntoView({behavior:"smooth",block:"end"});
 }
 function showTyping(){const el=document.createElement("div");el.className="typing-wrap";el.id="typing";el.innerHTML=`<div class="avatar ai">A</div><div class="typing-bubble"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div>`;document.getElementById("messages").appendChild(el);el.scrollIntoView({behavior:"smooth",block:"end"});}
 function hideTyping(){document.getElementById("typing")?.remove();}
@@ -729,10 +931,11 @@ async function sendMessage(){
   const text=msgInput.value.trim();if(!text||loading)return;
   loading=true;btnSend.disabled=true;msgInput.value="";msgInput.style.height="44px";
   messages.push({role:"user",content:text});appendMessage("user",text);showTyping();
-  const sysMsg=SYSTEM_PROMPT+(techName?`\n\nTech: ${techName}`:"");
+  const sysMsg=SYSTEM_PROMPT+`\n\nTech: ${techName}`;
   const apiMsgs=messages.map((m,i)=>({role:m.role,content:i===0?buildDeviceContext()+m.content:m.content}));
   try{
-    const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","X-ARIA-Key":ARIA_KEY},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1000,system:sysMsg,messages:apiMsgs})});
+    const r=await fetch("/api/chat",{method:"POST",headers:authHeaders(),body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1000,system:sysMsg,messages:apiMsgs})});
+    if(r.status===401){switchUser();return;}
     const data=await r.json();
     if(!r.ok)throw new Error(data?.error?.message||`API error ${r.status}`);
     const reply=data.content?.find(b=>b.type==="text")?.text||"No response.";
@@ -743,43 +946,78 @@ async function sendMessage(){
     document.getElementById("messages").appendChild(err);
   }finally{loading=false;btnSend.disabled=!msgInput.value.trim();}
 }
+
+// ── Summary ───────────────────────────────────────────────────────
+let lastSummaryText="";
+function closeSummary(){document.getElementById("summary-modal").classList.remove("visible");}
+async function copySummaryText(){
+  if(!lastSummaryText)return;
+  try{await navigator.clipboard.writeText(lastSummaryText);
+    const btn=document.querySelector("#summary-modal .mbtn.secondary");
+    btn.textContent="✓ Copied!";setTimeout(()=>{btn.textContent="📋 Copy to clipboard";},2000);}catch{}
+}
+
+async function copySummary(){
+  if(!messages.length){
+    const btn=document.getElementById("btn-summary");btn.textContent="No chat yet";
+    setTimeout(()=>{btn.textContent="📋 Summary";},2000);return;
+  }
+  document.getElementById("summary-modal").classList.add("visible");
+  document.getElementById("summary-generating").style.display="block";
+  document.getElementById("summary-content").style.display="none";
+  let deviceHtml="<div style='color:rgba(74,222,128,.3);font-size:12px'>No device selected this session</div>",deviceLine="";
+  if(deviceData){
+    const h=deviceData.last_check_in?Math.round(checkinHours(deviceData.last_check_in)):null;
+    deviceLine=`Device: ${deviceData.name||deviceData.serial} (${deviceData.model||""}, macOS ${deviceData.os_version||""}, ${deviceData.site||""})`;
+    deviceHtml=`
+      <div class="summary-device-row"><span class="summary-device-key">Device</span><span class="summary-device-val">${deviceData.name||deviceData.serial}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">Model</span><span class="summary-device-val">${deviceData.model||"—"}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">macOS</span><span class="summary-device-val">${deviceData.os_version||"—"}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">Serial</span><span class="summary-device-val">${deviceData.serial}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">Site</span><span class="summary-device-val">${deviceData.site||"—"}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">User</span><span class="summary-device-val">${deviceData.username||"—"}</span></div>
+      <div class="summary-device-row"><span class="summary-device-key">Last check-in</span><span class="summary-device-val">${h!==null?(h<24?`${h}h ago`:`${Math.round(h/24)}d ago`):"—"}</span></div>`;
+  }
+  try{
+    const convo=messages.map(m=>`${m.role==="user"?techName:"ARIA"}: ${m.content}`).join("\n\n");
+    const r=await fetch("/api/chat",{method:"POST",headers:authHeaders(),body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:400,messages:[{role:"user",content:`Summarize this tech support session in 3-5 sentences for a help desk ticket. Be specific: include the problem, what was tried, and the outcome or next step.\n\n${deviceLine}\n\n${convo}`}]})});
+    const data=await r.json();
+    const aiText=data.content?.find(b=>b.type==="text")?.text||"Could not generate summary.";
+    lastSummaryText=`ARIA Session Summary — ${new Date().toLocaleString()}\nTech: ${techName}\n${deviceLine}\n\n${aiText}`;
+    document.getElementById("summary-generating").style.display="none";
+    document.getElementById("summary-device-card").innerHTML=deviceHtml;
+    document.getElementById("summary-ai-text").textContent=aiText;
+    document.getElementById("summary-meta").textContent=`Generated ${new Date().toLocaleString()} · Tech: ${techName}`;
+    document.getElementById("summary-content").style.display="block";
+  }catch{document.getElementById("summary-generating").textContent="⚠ Could not generate summary.";}
+}
 </script>
+
 <script>
-// ── Fleet
+// ── Fleet ─────────────────────────────────────────────────────────
 document.getElementById("btn-fleet").addEventListener("click",toggleFleet);
-
-function closeFleet(){
-  fleetOpen=false;
-  document.getElementById("fleet-panel").style.display="none";
-  document.getElementById("btn-fleet").classList.remove("accent");
-  // Restore device panel if a device was loaded
-  if(deviceData) document.getElementById("device-panel").classList.add("visible");
-}
-
-function toggleFleet(){
-  if(fleetOpen){closeFleet();return;}
-  fleetOpen=true;
-  // Hide device panel when opening fleet
-  document.getElementById("device-panel").classList.remove("visible");
-  document.getElementById("fleet-panel").style.display="flex";
-  document.getElementById("btn-fleet").classList.add("accent");
-  renderFleetHome();
-}
+function closeFleet(){fleetOpen=false;document.getElementById("fleet-panel").style.display="none";document.getElementById("btn-fleet").classList.remove("accent");if(deviceData)document.getElementById("device-panel").classList.add("visible");}
+function toggleFleet(){if(fleetOpen){closeFleet();return;}fleetOpen=true;document.getElementById("device-panel").classList.remove("visible");document.getElementById("fleet-panel").style.display="flex";document.getElementById("btn-fleet").classList.add("accent");renderFleetHome();}
 
 async function renderFleetHome(){
   const el=document.getElementById("fleet-content");
   el.innerHTML='<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">Loading...</div>';
-  try{const r=await fetch("/api/fleet/sites",{headers:{"X-ARIA-Key":ARIA_KEY}});const d=await r.json();fleetSites=d.sites||[];}catch{fleetSites=[];}
+  try{const r=await fetch("/api/fleet/sites",{headers:authHeaders()});const d=await r.json();fleetSites=d.sites||[];}catch{fleetSites=[];}
   el.innerHTML=`
     <div style="margin-bottom:14px">
       <div class="panel-title" style="margin-bottom:8px">HEALTH CHECKS</div>
-      <button class="fleet-query-btn" onclick="runFleetQuery('stale_7')"><span>🕐 Stale &gt; 7 days</span><span class="fq-count" id="fq-stale_7">—</span></button>
-      <button class="fleet-query-btn" onclick="runFleetQuery('stale_14')"><span>🕐 Stale &gt; 14 days</span><span class="fq-count" id="fq-stale_14">—</span></button>
-      <button class="fleet-query-btn" onclick="runFleetQuery('stale_30')"><span>🕐 Stale &gt; 30 days</span><span class="fq-count" id="fq-stale_30">—</span></button>
-      <button class="fleet-query-btn" onclick="runFleetQuery('filevault_off')"><span>🔓 FileVault off</span><span class="fq-count warn" id="fq-filevault_off">—</span></button>
-      <button class="fleet-query-btn" onclick="runFleetQuery('unmanaged')"><span>⚠ Unmanaged</span><span class="fq-count warn" id="fq-unmanaged">—</span></button>
-      <button class="fleet-query-btn" onclick="runFleetQuery('super_noncompliant')"><span>🔄 SUPER non-compliant</span><span class="fq-count caution" id="fq-super_noncompliant">—</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('stale_7')"><span>🕐 Stale &gt; 7 days</span><span class="fq-count" id="fq-stale_7">...</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('stale_14')"><span>🕐 Stale &gt; 14 days</span><span class="fq-count" id="fq-stale_14">...</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('stale_30')"><span>🕐 Stale &gt; 30 days</span><span class="fq-count" id="fq-stale_30">...</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('filevault_off')"><span>🔓 FileVault off</span><span class="fq-count warn" id="fq-filevault_off">...</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('unmanaged')"><span>⚠ Unmanaged</span><span class="fq-count warn" id="fq-unmanaged">...</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('super_noncompliant')"><span>🔄 SUPER non-compliant</span><span class="fq-count caution" id="fq-super_noncompliant">...</span></button>
       <button class="fleet-query-btn" onclick="runFleetQuery('jc_missing')"><span>🔑 Jamf Connect missing</span><span class="fq-count caution" id="fq-jc_missing">—</span></button>
+    </div>
+    <div style="margin-bottom:14px">
+      <div class="panel-title" style="margin-bottom:8px">JAMF PROTECT</div>
+      <button class="fleet-query-btn" onclick="runFleetQuery('protect_alerts')"><span>🛡 Open threat alerts</span><span class="fq-count warn" id="fq-protect_alerts">—</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('protect_offline')"><span>📡 Protect offline &gt;24h</span><span class="fq-count caution" id="fq-protect_offline">—</span></button>
     </div>
     ${fleetSites.length?`<div style="margin-bottom:14px"><div class="panel-title" style="margin-bottom:8px">BY SITE</div><div style="display:flex;flex-wrap:wrap;gap:4px">${fleetSites.map(s=>`<span class="site-btn" onclick="runFleetQuery('site:${encodeURIComponent(s)}')">${s}</span>`).join("")}</div></div>`:""}
     <div><div class="panel-title" style="margin-bottom:8px">ALL DEVICES</div>
@@ -790,35 +1028,42 @@ async function renderFleetHome(){
 
 async function loadFleetCounts(force=false){
   try{
-    const r=await fetch(`/api/fleet/query?q=all${force?"&refresh=true":""}`,{headers:{"X-ARIA-Key":ARIA_KEY}});
+    const r=await fetch(`/api/fleet/query?q=all${force?"&refresh=true":""}`,{headers:authHeaders()});
     const d=await r.json();
     if(d.cache_age_minutes!==null){const l=document.getElementById("fleet-cache-label");if(l)l.textContent=`cached ${d.cache_age_minutes}m ago`;}
     const rs=d.results||[];
     const counts={stale_7:rs.filter(x=>x.hours_since>168).length,stale_14:rs.filter(x=>x.hours_since>336).length,stale_30:rs.filter(x=>x.hours_since>720).length,filevault_off:rs.filter(x=>!x.filevault).length,unmanaged:rs.filter(x=>!x.managed).length,super_noncompliant:rs.filter(x=>x.super_compliant&&x.super_compliant.toLowerCase().includes("non")).length,jc_missing:rs.filter(x=>!x.jc_version||x.jc_version==="Does not exist"||x.jc_version==="").length,all:rs.length};
-    for(const[q,count]of Object.entries(counts)){const el=document.getElementById(`fq-${q}`);if(el)el.textContent=count;}
+    for(const[q,c]of Object.entries(counts)){const el=document.getElementById(`fq-${q}`);if(el)el.textContent=c;}
   }catch(e){console.error("Fleet counts failed:",e);}
+  // Load Protect counts separately (async, non-blocking)
+  try{
+    const rp = await fetch("/api/fleet/protect-status", {headers: authHeaders()});
+    if(rp.ok){
+      const dp = await rp.json();
+      const ea = document.getElementById("fq-protect_alerts");
+      const eo = document.getElementById("fq-protect_offline");
+      if(ea) ea.textContent = dp.alert_count || 0;
+      if(eo) eo.textContent = dp.offline_count || 0;
+    }
+  }catch{}
 }
 
 async function runFleetQuery(query){
   const el=document.getElementById("fleet-content");
   el.innerHTML='<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">Running query...</div>';
   try{
-    const r=await fetch(`/api/fleet/query?q=${encodeURIComponent(query)}`,{headers:{"X-ARIA-Key":ARIA_KEY}});
+    const r=await fetch(`/api/fleet/query?q=${encodeURIComponent(query)}`,{headers:authHeaders()});
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Query failed");
     renderFleetResults(d);
   }catch(e){el.innerHTML=`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`;}
 }
 
 function renderFleetResults(data){
-  const el=document.getElementById("fleet-content");
-  const results=data.results||[];
+  const el=document.getElementById("fleet-content");const results=data.results||[];
   function badge(h){if(h===null||h===undefined)return`<span class="fr-badge amber">unknown</span>`;if(h>720)return`<span class="fr-badge red">${Math.round(h/24)}d ago</span>`;if(h>168)return`<span class="fr-badge amber">${Math.round(h/24)}d ago</span>`;return`<span class="fr-badge green">${h<24?Math.round(h)+"h":Math.round(h/24)+"d"} ago</span>`;}
   let html=`<button class="fleet-back" onclick="renderFleetHome()">← Back</button><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="color:var(--green2);font-family:var(--mono);font-size:11px;font-weight:700">${data.label}</span><span style="color:rgba(74,222,128,.4);font-size:10px;font-family:var(--mono)">${data.count} of ${data.total_fleet}</span></div>`;
-  if(!results.length){html+=`<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">✓ No devices match this query</div>`;}
-  else{
-    html+=results.slice(0,100).map(d=>`<div class="fleet-result" onclick="loadFleetDevice('${d.serial}')"><div style="flex:1;min-width:0"><div class="fr-name">${d.name||d.serial}</div><div class="fr-meta">${d.site||"No site"} · ${d.username||"No user"}</div></div>${badge(d.hours_since)}</div>`).join("");
-    if(results.length>100)html+=`<div style="text-align:center;color:rgba(74,222,128,.25);font-size:10px;font-family:var(--mono);padding:8px">Showing 100 of ${results.length}</div>`;
-  }
+  if(!results.length)html+=`<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">✓ No devices match this query</div>`;
+  else{html+=results.slice(0,100).map(d=>`<div class="fleet-result" onclick="loadFleetDevice('${d.serial}')"><div style="flex:1;min-width:0"><div class="fr-name">${d.name||d.serial}</div><div class="fr-meta">${d.site||"No site"} · ${d.username||"No user"}</div></div>${badge(d.hours_since)}</div>`).join("");if(results.length>100)html+=`<div style="text-align:center;color:rgba(74,222,128,.25);font-size:10px;font-family:var(--mono);padding:8px">Showing 100 of ${results.length}</div>`;}
   if(data.cache_age_minutes!==null){const l=document.getElementById("fleet-cache-label");if(l)l.textContent=`cached ${data.cache_age_minutes}m ago`;}
   el.innerHTML=html;
 }
@@ -828,31 +1073,350 @@ async function loadFleetDevice(serial){
   document.getElementById("lookup-input").value=serial;
   await lookupDevice(serial);
 }
-
-checkBackend();
 </script>
 
-<!-- Summary Modal -->
-<div id="summary-modal">
-  <div id="summary-box">
-    <div id="summary-header">
-      <span id="summary-title">📋 Session Summary</span>
-      <button id="summary-close" onclick="closeSummary()">✕</button>
+<script>
+// ── Admin panel ───────────────────────────────────────────────────
+let adminTab = "users";
+function openAdmin(){document.getElementById("admin-modal").classList.add("visible");switchAdminTab("users");}
+function closeAdmin(){document.getElementById("admin-modal").classList.remove("visible");}
+function switchAdminTab(tab){
+  adminTab=tab;
+  document.querySelectorAll(".atab").forEach((el,i)=>el.classList.toggle("active",["users","audit"][i]===tab));
+  if(tab==="users")loadAdminUsers();else loadAdminAudit();
+}
+
+async function loadAdminUsers(){
+  const el=document.getElementById("admin-body");
+  el.innerHTML='<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">Loading...</div>';
+  try{
+    const r=await fetch("/api/admin/users",{headers:authHeaders()});
+    const d=await r.json();
+    const users=d.users||[];
+    let html=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:20px">
+      <div class="panel-title" style="margin-bottom:10px">ADD NEW TECH</div>
+      <div style="display:grid;grid-template-columns:1fr 2fr auto;gap:8px;margin-bottom:8px">
+        <input type="text" id="new-user-username" placeholder="username" style="padding:8px 10px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:13px;font-family:var(--sans)">
+        <input type="text" id="new-user-name" placeholder="Display Name (e.g. John Smith)" style="padding:8px 10px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:13px;font-family:var(--sans)">
+        <select id="new-user-role" style="padding:8px 10px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:13px;font-family:var(--sans);width:80px">
+          <option value="tech">tech</option><option value="admin">admin</option>
+        </select>
+      </div>
+      <button onclick="addUser()" style="width:100%;padding:8px;border-radius:6px;border:none;background:var(--green4);color:#f0fdf4;font-size:13px;cursor:pointer;font-family:var(--sans)">Add User</button>
+      <div id="add-user-result" style="margin-top:10px"></div>
     </div>
-    <div id="summary-body">
-      <div id="summary-generating">Generating summary...</div>
-      <div id="summary-content">
-        <div id="summary-device-card" class="summary-device-card"></div>
-        <div id="summary-ai-text" class="summary-ai-text"></div>
-        <div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.3);text-align:right" id="summary-meta"></div>
+    <div class="panel-title" style="margin-bottom:10px">CURRENT USERS (${users.length})</div>`;
+    users.forEach(u=>{
+      html+=`<div class="user-row">
+        <div style="flex:1"><div style="color:var(--green3);font-size:13px">${u.display_name}</div>
+        <div style="color:rgba(74,222,128,.4);font-family:var(--mono);font-size:11px">${u.username} ${u.must_change_password?'· <span style="color:var(--amber)">⚠ must change password</span>':''}</div></div>
+        <span class="user-badge ${u.role}">${u.role}</span>
+        <button class="ubtn" onclick="toggleUserRole('${u.username}','${u.role}','${u.display_name}')">${u.role==="admin"?"→ tech":"→ admin"}</button>
+        <button class="ubtn" onclick="resetUserPassword('${u.username}','${u.display_name}')">Reset PW</button>
+        ${u.username !== currentUser?.username ? `<button class="ubtn danger" onclick="removeUser('${u.username}','${u.display_name}')">Remove</button>` : `<span style="font-size:11px;color:rgba(74,222,128,.2);font-family:var(--mono)">(you)</span>`}
+      </div>`;
+    });
+    el.innerHTML=html;
+  }catch(e){el.innerHTML=`<div style="color:var(--red)">⚠ ${e.message}</div>`;}
+}
+
+async function addUser(){
+  const username=document.getElementById("new-user-username").value.trim().toLowerCase();
+  const display=document.getElementById("new-user-name").value.trim();
+  const role=document.getElementById("new-user-role").value;
+  const resultEl=document.getElementById("add-user-result");
+  if(!username||!display){resultEl.innerHTML='<div style="color:var(--red);font-size:12px">Enter username and display name</div>';return;}
+  try{
+    const r=await fetch("/api/admin/users",{method:"POST",headers:authHeaders(),body:JSON.stringify({username,display_name:display,role})});
+    const d=await r.json();
+    if(!r.ok){resultEl.innerHTML=`<div style="color:var(--red);font-size:12px">⚠ ${d.error}</div>`;return;}
+    resultEl.innerHTML=`<div style="background:var(--bg0);border:1px solid var(--border2);border-radius:8px;padding:14px">
+      <div style="color:var(--green);font-family:var(--mono);font-size:12px;margin-bottom:8px">✓ ${d.display_name} added successfully</div>
+      <div style="color:rgba(74,222,128,.5);font-size:11px;margin-bottom:6px">Temp password — give this to the tech:</div>
+      <div style="color:var(--green);font-family:var(--mono);font-size:20px;letter-spacing:.15em;padding:8px 0">${d.temp_password}</div>
+      <div style="color:rgba(74,222,128,.3);font-size:11px;margin-top:4px">They will be prompted to change it on first login.</div>
+      <button onclick="this.closest('div[style]').remove();loadAdminUsers()" style="margin-top:10px;width:100%;padding:6px;border-radius:6px;border:1px solid var(--border2);background:none;color:var(--green2);font-size:12px;font-family:var(--mono);cursor:pointer">✓ Got it — dismiss</button>
+    </div>`;
+  }catch(e){resultEl.innerHTML=`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`;}
+}
+
+async function toggleUserRole(username, currentRole, displayName){
+  const newRole = currentRole === "admin" ? "tech" : "admin";
+  if(!confirm(`Change ${displayName} from ${currentRole} to ${newRole}?`)) return;
+  try{
+    const r = await fetch(`/api/admin/users/${username}/role`, {method:"PATCH", headers:authHeaders(), body:JSON.stringify({role:newRole})});
+    const d = await r.json();
+    if(!r.ok){ alert(d.error); return; }
+    loadAdminUsers();
+  }catch(e){ console.error("Role change failed:", e); }
+}
+
+async function resetUserPassword(username,displayName){
+  try{
+    const r=await fetch(`/api/admin/users/${username}/reset`,{method:"POST",headers:authHeaders()});
+    const d=await r.json();
+    if(!r.ok)return;
+    const el=document.getElementById("admin-body");
+    const banner=document.createElement("div");
+    banner.style.cssText="position:sticky;top:0;background:var(--bg1);border:1px solid var(--border2);border-radius:8px;padding:14px;margin-bottom:16px;z-index:10";
+    banner.innerHTML=`<div style="color:var(--green);font-family:var(--mono);font-size:12px;margin-bottom:6px">✓ Password reset for ${displayName}</div>
+      <div style="color:rgba(74,222,128,.5);font-size:11px">Temp password to give them:</div>
+      <div style="color:var(--green);font-family:var(--mono);font-size:18px;letter-spacing:.1em;margin-top:6px">${d.temp_password}</div>
+      <button onclick="this.parentElement.remove();loadAdminUsers()" style="margin-top:8px;padding:4px 12px;border-radius:5px;border:1px solid var(--border);background:none;color:rgba(74,222,128,.5);font-size:11px;font-family:var(--mono);cursor:pointer">Dismiss</button>`;
+    el.prepend(banner);
+  }catch{}
+}
+
+async function removeUser(username,displayName){
+  if(!confirm(`Remove ${displayName}? They will immediately lose access.`))return;
+  try{
+    await fetch(`/api/admin/users/${username}`,{method:"DELETE",headers:authHeaders()});
+    loadAdminUsers();
+  }catch{}
+}
+
+async function loadAdminAudit(){
+  const el=document.getElementById("admin-body");
+  el.innerHTML='<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">Loading...</div>';
+  try{
+    const r=await fetch("/api/admin/audit?limit=100",{headers:authHeaders()});
+    const d=await r.json();const entries=d.entries||[];
+    if(!entries.length){el.innerHTML='<div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:20px">No audit entries yet</div>';return;}
+    el.innerHTML=entries.map(e=>{
+      const dt=new Date(e.ts).toLocaleString([],{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+      return`<div class="audit-row">
+        <span class="audit-action ${e.action}">${e.action}</span>
+        <div style="flex:1"><div class="audit-detail">${e.detail}</div><div style="color:rgba(74,222,128,.3);font-size:10px;font-family:var(--mono)">${e.tech}</div></div>
+        <div class="audit-meta">${dt}<br>${e.ip||""}</div>
+      </div>`;
+    }).join("");
+  }catch(e){el.innerHTML=`<div style="color:var(--red)">⚠ ${e.message}</div>`;}
+}
+</script>
+<!-- Analyze Modal -->
+<div id="analyze-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width:680px">
+    <div class="modal-header">
+      <span class="modal-title" id="analyze-title">⚠ Conflict & Security Analysis</span>
+      <button class="modal-close" onclick="closeAnalyze()">✕</button>
+    </div>
+    <div class="modal-body" id="analyze-body">
+      <div style="text-align:center;padding:40px;color:rgba(74,222,128,.4);font-family:var(--mono);font-size:13px">
+        <div style="font-size:28px;margin-bottom:12px">⚙</div>
+        Running analysis...
       </div>
     </div>
-    <div id="summary-footer">
-      <button class="summary-action-btn secondary" onclick="copySummaryText()">📋 Copy to clipboard</button>
-      <button class="summary-action-btn primary" onclick="closeSummary()">Done</button>
+    <div class="modal-footer" id="analyze-footer" style="display:none">
+      <button class="mbtn secondary" onclick="escalateAnalysis()">📤 Escalate to Bob</button>
+      <button class="mbtn secondary" onclick="copyAnalysis()">📋 Copy Report</button>
+      <button class="mbtn primary" onclick="closeAnalyze()">Done</button>
     </div>
   </div>
 </div>
+
+<script>
+// ── Conflict & Security Analyzer ─────────────────────────────────
+let lastAnalysisText="";
+function closeAnalyze(){document.getElementById("analyze-modal").classList.remove("visible");}
+
+async function runAnalysis(){
+  if(!deviceData)return;
+  document.getElementById("analyze-modal").classList.add("visible");
+  document.getElementById("analyze-footer").style.display="none";
+  document.getElementById("analyze-title").textContent=`⚠ Analyzing ${deviceData.name||deviceData.serial}...`;
+  document.getElementById("analyze-body").innerHTML=`
+    <div style="text-align:center;padding:40px;color:rgba(74,222,128,.4);font-family:var(--mono);font-size:13px">
+      <div style="font-size:28px;margin-bottom:16px;animation:pulse 1.5s ease-in-out infinite">⚙</div>
+      Pulling profiles, policies, security data...<br>
+      <span style="font-size:11px;color:rgba(74,222,128,.2);margin-top:8px;display:block">This takes about 10 seconds</span>
+    </div>`;
+  try{
+    const r=await fetch(`/api/device/${deviceData.serial}/analyze`,{method:"POST",headers:authHeaders()});
+    if(r.status===401){switchUser();return;}
+    if(!r.ok){const e=await r.json();throw new Error(e.error||"Analysis failed");}
+    renderAnalysis(await r.json());
+  }catch(e){
+    document.getElementById("analyze-body").innerHTML=`<div style="color:var(--red);padding:20px">⚠ ${e.message}</div>`;
+  }
+}
+
+function renderAnalysis(d){
+  document.getElementById("analyze-title").textContent=`⚠ Analysis — ${d.device_name||d.serial}`;
+  lastAnalysisText=`ARIA Conflict & Security Analysis\nDevice: ${d.device_name} (${d.model}, macOS ${d.os_version}, ${d.site})\nSerial: ${d.serial}\nDate: ${new Date().toLocaleString()}\nTech: ${techName}\n\nSUMMARY\n${d.ai_summary}\n\nSTATS\n${d.high_count} HIGH · ${d.medium_count} MEDIUM · ${d.low_count} LOW\nProfiles: ${d.profile_count} · Smart Groups: ${d.group_count}\n\nISSUES\n${d.issues.length?d.issues.map(i=>`[${i.severity}][${i.category}] ${i.title}\n  Detail: ${i.detail}\n  Action: ${i.action}`).join('\n\n'):'No issues detected.'}`;
+
+  let html=`<div class="analyze-stats">
+    <span class="stat-pill ${d.high_count>0?'red':'green'}">${d.high_count} HIGH</span>
+    <span class="stat-pill ${d.medium_count>0?'amber':'green'}">${d.medium_count} MEDIUM</span>
+    <span class="stat-pill green">${d.low_count} LOW</span>
+    <span class="stat-pill blue">${d.profile_count} profiles · ${d.group_count} groups</span>
+  </div>
+  <div class="analyze-summary">${d.ai_summary}</div>`;
+
+  if(!d.issues.length){
+    html+=`<div style="text-align:center;padding:20px;color:var(--green);font-size:14px">✅ No conflicts or security issues detected</div>`;
+  }else{
+    const order={HIGH:0,MEDIUM:1,LOW:2};
+    [...d.issues].sort((a,b)=>(order[a.severity]||0)-(order[b.severity]||0)).forEach(i=>{
+      html+=`<div class="issue-row ${i.severity}">
+        <div><span class="issue-severity ${i.severity}">${i.severity}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.3);margin-left:6px">${i.category}</span></div>
+        <div class="issue-title">${i.title}</div>
+        <div class="issue-detail">${i.detail}</div>
+        ${i.action?`<div class="issue-action">→ ${i.action}</div>`:''}
+      </div>`;
+    });
+  }
+  html+=`<div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.2);text-align:right;margin-top:8px">Generated ${new Date().toLocaleString()} · Tech: ${techName}</div>`;
+  document.getElementById("analyze-body").innerHTML=html;
+  document.getElementById("analyze-footer").style.display="flex";
+}
+
+async function copyAnalysis(){
+  if(!lastAnalysisText)return;
+  try{
+    await navigator.clipboard.writeText(lastAnalysisText);
+    const btn=document.querySelector("#analyze-modal .mbtn.secondary:last-of-type");
+    if(btn){btn.textContent="✓ Copied!";setTimeout(()=>{btn.textContent="📋 Copy Report";},2000);}
+  }catch{}
+}
+
+async function escalateAnalysis(){
+  if(!lastAnalysisText)return;
+  const btn = document.querySelector("#analyze-modal .mbtn.secondary:first-of-type");
+  const origText = btn ? btn.textContent : "";
+
+  // Try Slack first
+  let slackSent = false;
+  try{
+    const r = await fetch("/api/escalate",{method:"POST",headers:authHeaders(),body:JSON.stringify({text:lastAnalysisText})});
+    const d = await r.json();
+    slackSent = d.success;
+  }catch{}
+
+  // Always post a brief note to chat (not the full report)
+  const device = deviceData ? (deviceData.name||deviceData.serial) : "device";
+  const issueCount = lastAnalysisText.match(/\[(HIGH|MEDIUM|LOW)\]/g)?.length || 0;
+  const highCount  = lastAnalysisText.match(/\[HIGH\]/g)?.length || 0;
+  const summary    = lastAnalysisText.split('\n').find(l => l.startsWith('SUMMARY'))
+    ? lastAnalysisText.split('SUMMARY\n')[1]?.split('\n\n')[0] : "";
+
+  appendMessage("assistant",
+    `📤 Analysis escalated for ${device}\n` +
+    `${highCount > 0 ? `🔴 ${highCount} HIGH severity issues` : `✓ ${issueCount} issue(s) flagged`}\n` +
+    (slackSent ? `✓ Sent to Slack` : `⚠ Slack not configured — copy the report manually`) +
+    (summary ? `\n\n${summary}` : "")
+  );
+
+  if(btn){btn.textContent="✓ Escalated!";setTimeout(()=>{btn.textContent=origText;},2000);}
+  closeAnalyze();
+}
+</script>
+
+<!-- Admin JS -->
+<script>
+let adminTab="users";
+function openAdmin(){document.getElementById("admin-modal").classList.add("visible");switchAdminTab("users");}
+function closeAdmin(){document.getElementById("admin-modal").classList.remove("visible");}
+function switchAdminTab(tab){
+  adminTab=tab;
+  document.querySelectorAll(".atab").forEach((el,i)=>el.classList.toggle("active",["users","audit"][i]===tab));
+  if(tab==="users")loadAdminUsers();else loadAdminAudit();
+}
+
+async function loadAdminUsers(){
+  const el=document.getElementById("admin-body");
+  el.innerHTML='<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">Loading...</div>';
+  try{
+    const r=await fetch("/api/admin/users",{headers:authHeaders()});
+    const d=await r.json();const users=d.users||[];
+    let html=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:20px">
+      <div class="panel-title" style="margin-bottom:10px">ADD NEW TECH</div>
+      <div style="display:grid;grid-template-columns:1fr 2fr auto;gap:8px;margin-bottom:8px">
+        <input type="text" id="new-user-username" placeholder="username" style="padding:8px 10px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:13px;font-family:var(--sans)">
+        <input type="text" id="new-user-name" placeholder="Display Name (e.g. John Smith)" style="padding:8px 10px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:13px;font-family:var(--sans)">
+        <select id="new-user-role" style="padding:8px 10px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:13px;font-family:var(--sans);width:80px">
+          <option value="tech">tech</option><option value="admin">admin</option>
+        </select>
+      </div>
+      <button onclick="addUser()" style="width:100%;padding:8px;border-radius:6px;border:none;background:var(--green4);color:#f0fdf4;font-size:13px;cursor:pointer;font-family:var(--sans)">Add User</button>
+      <div id="add-user-result" style="margin-top:10px"></div>
+    </div>
+    <div class="panel-title" style="margin-bottom:10px">CURRENT USERS (${users.length})</div>`;
+    users.forEach(u=>{
+      html+=`<div class="user-row">
+        <div style="flex:1"><div style="color:var(--green3);font-size:13px">${u.display_name}</div>
+        <div style="color:rgba(74,222,128,.4);font-family:var(--mono);font-size:11px">${u.username}${u.must_change_password?' · <span style="color:var(--amber)">⚠ must change password</span>':''}</div></div>
+        <span class="user-badge ${u.role}">${u.role}</span>
+        <button class="ubtn" onclick="resetUserPassword('${u.username}','${u.display_name}')">Reset PW</button>
+        ${u.username!==currentUser?.username?`<button class="ubtn danger" onclick="removeUser('${u.username}','${u.display_name}')">Remove</button>`:`<span style="font-size:11px;color:rgba(74,222,128,.2);font-family:var(--mono)">(you)</span>`}
+      </div>`;
+    });
+    el.innerHTML=html;
+  }catch(e){el.innerHTML=`<div style="color:var(--red)">⚠ ${e.message}</div>`;}
+}
+
+async function addUser(){
+  const username=document.getElementById("new-user-username").value.trim().toLowerCase();
+  const display=document.getElementById("new-user-name").value.trim();
+  const role=document.getElementById("new-user-role").value;
+  const resultEl=document.getElementById("add-user-result");
+  if(!username||!display){resultEl.innerHTML='<div style="color:var(--red);font-size:12px">Enter username and display name</div>';return;}
+  try{
+    const r=await fetch("/api/admin/users",{method:"POST",headers:authHeaders(),body:JSON.stringify({username,display_name:display,role})});
+    const d=await r.json();
+    if(!r.ok){resultEl.innerHTML=`<div style="color:var(--red);font-size:12px">⚠ ${d.error}</div>`;return;}
+    resultEl.innerHTML=`<div style="background:var(--bg0);border:1px solid var(--border2);border-radius:8px;padding:14px">
+      <div style="color:var(--green);font-family:var(--mono);font-size:12px;margin-bottom:8px">✓ ${d.display_name} added</div>
+      <div style="color:rgba(74,222,128,.5);font-size:11px;margin-bottom:6px">Temp password — give this to the tech:</div>
+      <div style="color:var(--green);font-family:var(--mono);font-size:20px;letter-spacing:.15em;padding:8px 0">${d.temp_password}</div>
+      <div style="color:rgba(74,222,128,.3);font-size:11px">They will be prompted to change it on first login.</div>
+      <button onclick="this.closest('div').parentElement.remove();loadAdminUsers()" style="margin-top:10px;width:100%;padding:6px;border-radius:6px;border:1px solid var(--border2);background:none;color:var(--green2);font-size:12px;font-family:var(--mono);cursor:pointer">✓ Got it — dismiss</button>
+    </div>`;
+    document.getElementById("new-user-username").value="";
+    document.getElementById("new-user-name").value="";
+  }catch(e){resultEl.innerHTML=`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`;}
+}
+
+async function resetUserPassword(username,displayName){
+  try{
+    const r=await fetch(`/api/admin/users/${username}/reset`,{method:"POST",headers:authHeaders()});
+    const d=await r.json();if(!r.ok)return;
+    const el=document.getElementById("admin-body");
+    const banner=document.createElement("div");
+    banner.style.cssText="position:sticky;top:0;background:var(--bg1);border:1px solid var(--border2);border-radius:8px;padding:14px;margin-bottom:16px;z-index:10";
+    banner.innerHTML=`<div style="color:var(--green);font-family:var(--mono);font-size:12px;margin-bottom:6px">✓ Password reset for ${displayName}</div>
+      <div style="color:rgba(74,222,128,.5);font-size:11px">Temp password:</div>
+      <div style="color:var(--green);font-family:var(--mono);font-size:20px;letter-spacing:.15em;margin-top:6px;padding:8px 0">${d.temp_password}</div>
+      <button onclick="this.parentElement.remove();loadAdminUsers()" style="margin-top:8px;width:100%;padding:5px;border-radius:5px;border:1px solid var(--border2);background:none;color:var(--green2);font-size:12px;font-family:var(--mono);cursor:pointer">✓ Got it — dismiss</button>`;
+    el.prepend(banner);
+  }catch{}
+}
+
+async function removeUser(username,displayName){
+  if(!confirm(`Remove ${displayName}? They will lose access immediately.`))return;
+  try{await fetch(`/api/admin/users/${username}`,{method:"DELETE",headers:authHeaders()});loadAdminUsers();}catch{}
+}
+
+async function loadAdminAudit(){
+  const el=document.getElementById("admin-body");
+  el.innerHTML='<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">Loading...</div>';
+  try{
+    const r=await fetch("/api/admin/audit?limit=100",{headers:authHeaders()});
+    const d=await r.json();const entries=d.entries||[];
+    if(!entries.length){el.innerHTML='<div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:20px">No audit entries yet</div>';return;}
+    el.innerHTML=entries.map(e=>{
+      const dt=new Date(e.ts).toLocaleString([],{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+      return`<div class="audit-row">
+        <span class="audit-action ${e.action}">${e.action}</span>
+        <div style="flex:1"><div class="audit-detail">${e.detail}</div><div style="color:rgba(74,222,128,.3);font-size:10px;font-family:var(--mono)">${e.tech}</div></div>
+        <div class="audit-meta">${dt}<br>${e.ip||""}</div>
+      </div>`;
+    }).join("");
+  }catch(e){el.innerHTML=`<div style="color:var(--red)">⚠ ${e.message}</div>`;}
+}
+
+checkBackend();
+</script>
 
 </body>
 </html>
