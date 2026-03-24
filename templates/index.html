@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bob's Jamf Pro Assistant</title>
+<title>ARIA — Jamf Pro Assistant</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -220,9 +220,8 @@ h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.
   <div class="bg-overlay"></div>
   <div class="auth-card">
     <div style="text-align:center;margin-bottom:32px">
-      <div class="pill-badge"><div class="dot" id="login-dot"></div><span id="login-status-text">ARIA v4.0 · TRSD</span></div>
-      <h1>Bob's Jamf Pro Assistant</h1>
-      <p class="subtitle">Sign in to continue</p>
+      <div class="pill-badge"><div class="dot" id="login-dot"></div><span id="login-status-text">ARIA v4.0</span></div>
+      <h1>ARIA — Jamf Pro Assistant</h1>
     </div>
     <div class="field"><label class="field-label">USERNAME</label>
       <input type="text" id="login-username" placeholder="your.username" autocomplete="username" autocapitalize="none">
@@ -262,9 +261,9 @@ h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.
   <div class="bg-overlay"></div>
   <div id="setup-card">
     <div style="text-align:center;margin-bottom:32px">
-      <div class="pill-badge"><div class="dot" id="backend-dot"></div><span id="backend-text">ARIA v4.0 · TRSD</span></div>
-      <h1>Bob's Jamf Pro Assistant</h1>
-      <p class="subtitle">Automated Resolution &amp; Incident Assistant</p>
+      <div class="pill-badge"><div class="dot" id="backend-dot"></div><span id="backend-text">ARIA v4.0</span></div>
+      <h1>ARIA — Jamf Pro Assistant</h1>
+      <p class="subtitle">Sign in to continue</p>
     </div>
     <div class="setup-row">
       <div class="field">
@@ -391,10 +390,9 @@ h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.
 
 <script>
 // ── State ─────────────────────────────────────────────────────────
-const SYSTEM_PROMPT=`You are ARIA — Automated Resolution & Incident Assistant — a Jamf Pro and macOS troubleshooting assistant for Three Rivers School District (TRSD) in Oregon.
-TRSD: ~961 Macs, Jamf Pro MDM, Jamf Connect v3.14.0, SUPER updates, ConnectWise Control, Konica Minolta printers, Securly web filter (blocks RFC1918 in Chrome), FileVault enforced, Tailscale VPN.
+const SYSTEM_PROMPT=`You are ARIA — Automated Resolution & Incident Assistant — an AI-powered Jamf Pro and macOS troubleshooting assistant.
 YOUR JOB: Use live device data when provided. Give numbered step-by-step field instructions. Be direct and brief — techs are in the field.
-COMMON ISSUES: Policy failures→flush MDM first. SUPER not running→launchctl list|grep super. Jamf Connect loop→network/IdP or delete pref file. FileVault stuck→Secure Token, escalate to Bob. Printers gone→re-push via Self Service. Chrome+printer→Securly blocking RFC1918. ConnectWise→check agent/service/firewall.`;
+COMMON ISSUES: Policy failures→flush MDM first. SUPER not running→launchctl list|grep super. Jamf Connect loop→network/IdP or delete pref file. FileVault stuck→Secure Token. Printers gone→re-push via Self Service.`;
 
 let sessionToken = sessionStorage.getItem("aria_token") || "";
 let currentUser  = JSON.parse(sessionStorage.getItem("aria_user") || "null");
@@ -451,11 +449,11 @@ async function checkBackend() {
     const d = await r.json();
     if(d.status === "ok") {
       document.querySelectorAll(".dot").forEach(el => el.className = "dot");
-      document.getElementById("login-status-text").textContent = "ARIA v4.0 · TRSD · Online";
+      document.getElementById("login-status-text").textContent = "ARIA v4.0 · Online";
     }
   } catch {
     document.querySelectorAll(".dot").forEach(el => el.className = "dot red");
-    document.getElementById("login-status-text").textContent = "ARIA v4.0 · TRSD · Offline";
+    document.getElementById("login-status-text").textContent = "ARIA v4.0 · Offline";
   }
 }
 
@@ -1207,7 +1205,7 @@ async function loadAdminAudit(){
       </div>
     </div>
     <div class="modal-footer" id="analyze-footer" style="display:none">
-      <button class="mbtn secondary" onclick="escalateAnalysis()">📤 Escalate to Bob</button>
+      <button class="mbtn secondary" onclick="escalateAnalysis()">📤 Escalate</button>
       <button class="mbtn secondary" onclick="copyAnalysis()">📋 Copy Report</button>
       <button class="mbtn primary" onclick="closeAnalyze()">Done</button>
     </div>

@@ -1,5 +1,5 @@
 """
-ARIA Backend Server — Three Rivers School District
+ARIA Backend Server
 Runs on your Mac as a LaunchAgent on port 5001 (HTTPS).
 """
 
@@ -180,7 +180,7 @@ def index():
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "service": "ARIA", "district": "TRSD"})
+    return jsonify({"status": "ok", "service": "ARIA"})
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
