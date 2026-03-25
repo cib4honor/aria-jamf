@@ -20,10 +20,13 @@ except ImportError:
 USERS_FILE = Path(__file__).parent / "config" / "users.json"
 
 TECH_DISPLAY = {
-    # Add your team's usernames and display names here
-    # "alice":   "Alice Johnson",
-    # "bob":     "Bob Smith",
-    # "carol":   "Carol Williams",
+    "bob":     "Bob Giordano",
+    "robert":  "Robert Saunders",
+    "scott":   "Scott Midkiff",
+    "deanna":  "Deanna McLean",
+    "ellen":   "Ellen Paul",
+    "michal":  "Michal Dudzinski",
+    "danica":  "Danica Gibson",
 }
 
 def load_users():

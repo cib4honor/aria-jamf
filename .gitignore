@@ -1,13 +1,43 @@
+# ── Secrets & credentials ─────────────────────────────────────────
 .env
-venv/
-__pycache__/
-*.pyc
-*.pyo
 *.pem
 *.key
-handoff_log.json
-aria-cert.pem
-aria-key.pem
-static/bg.jpg
+*.crt
+mkcert
+
+# ── Python ────────────────────────────────────────────────────────
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.so
+
+# ── Logs & runtime data ───────────────────────────────────────────
 *.log
+audit_log.json
+handoff_log.json
+
+# ── User data (contains hashed passwords) ────────────────────────
+config/users.json
+
+# ── macOS ─────────────────────────────────────────────────────────
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Editor ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Broken/backup server files ────────────────────────────────────
+aria_server_broken.py
+aria_server_clean.py
+aria_server_github.py
+
+# ── LaunchAgent plist (machine-specific) ─────────────────────────
+com.trsd.aria.plist

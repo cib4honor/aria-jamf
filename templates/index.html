@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ARIA — Jamf Pro Assistant</title>
+<title>Bob's Jamf Pro Assistant</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -210,6 +210,10 @@ h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.
 .stat-pill.amber{background:#1a1200;border:1px solid #92400e;color:#fcd34d}
 .stat-pill.green{background:#0a1a0f;border:1px solid var(--border2);color:var(--green2)}
 .stat-pill.blue{background:#0a0f1a;border:1px solid #1e3a5f;color:#93c5fd}
+.email-field{margin-bottom:12px}
+.email-field label{display:block;color:var(--green2);font-size:11px;font-family:var(--mono);letter-spacing:.08em;margin-bottom:5px}
+.email-field input,.email-field textarea{width:100%;padding:9px 12px;border-radius:7px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:13px;font-family:var(--sans)}
+.email-field textarea{min-height:100px;resize:vertical;line-height:1.5}
 </style>
 </head>
 <body>
@@ -220,8 +224,9 @@ h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.
   <div class="bg-overlay"></div>
   <div class="auth-card">
     <div style="text-align:center;margin-bottom:32px">
-      <div class="pill-badge"><div class="dot" id="login-dot"></div><span id="login-status-text">ARIA v4.0</span></div>
-      <h1>ARIA — Jamf Pro Assistant</h1>
+      <div class="pill-badge"><div class="dot" id="login-dot"></div><span id="login-status-text">ARIA v4.0 · TRSD</span></div>
+      <h1>Bob's Jamf Pro Assistant</h1>
+      <p class="subtitle">Sign in to continue</p>
     </div>
     <div class="field"><label class="field-label">USERNAME</label>
       <input type="text" id="login-username" placeholder="your.username" autocomplete="username" autocapitalize="none">
@@ -261,9 +266,9 @@ h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.
   <div class="bg-overlay"></div>
   <div id="setup-card">
     <div style="text-align:center;margin-bottom:32px">
-      <div class="pill-badge"><div class="dot" id="backend-dot"></div><span id="backend-text">ARIA v4.0</span></div>
-      <h1>ARIA — Jamf Pro Assistant</h1>
-      <p class="subtitle">Sign in to continue</p>
+      <div class="pill-badge"><div class="dot" id="backend-dot"></div><span id="backend-text">ARIA v4.0 · TRSD</span></div>
+      <h1>Bob's Jamf Pro Assistant</h1>
+      <p class="subtitle">Automated Resolution &amp; Incident Assistant</p>
     </div>
     <div class="setup-row">
       <div class="field">
@@ -289,15 +294,16 @@ h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.
       <span style="color:rgba(74,222,128,.25);font-size:11px">● live jamf</span>
     </div>
     <div id="header-center">
-      <input type="text" id="lookup-input" placeholder="Serial or username..." maxlength="40" style="width:180px">
+      <input type="text" id="lookup-input" placeholder="Serial, first.last, or name..." maxlength="40" style="width:220px">
       <button class="hbtn" id="btn-lookup">Look up</button>
+      <span id="lookup-hint" style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);white-space:nowrap"></span>
     </div>
     <div id="header-right">
       <button class="hbtn accent" id="btn-summary" onclick="copySummary()">📋 Summary</button>
       <button class="hbtn" id="btn-fleet">🖥 Fleet</button>
       <button class="hbtn" id="btn-admin" style="display:none" onclick="openAdmin()">⚙ Admin</button>
-      <button class="hbtn" id="btn-home">⌂</button>
-      <button class="hbtn" id="btn-switch">⇄</button>
+      <button class="hbtn" id="btn-home" style="background:rgba(74,222,128,.08);border-color:var(--border2);color:var(--green2);font-weight:600;padding:4px 12px">⌂ New Session</button>
+      <button class="hbtn" id="btn-switch">⇄ Log Out</button>
     </div>
   </div>
   <div id="chat-body">
@@ -390,9 +396,10 @@ h1{color:#f0fdf4;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.
 
 <script>
 // ── State ─────────────────────────────────────────────────────────
-const SYSTEM_PROMPT=`You are ARIA — Automated Resolution & Incident Assistant — an AI-powered Jamf Pro and macOS troubleshooting assistant.
+const SYSTEM_PROMPT=`You are ARIA — Automated Resolution & Incident Assistant — a Jamf Pro and macOS troubleshooting assistant for Three Rivers School District (TRSD) in Oregon.
+TRSD: ~961 Macs, Jamf Pro MDM, Jamf Connect v3.14.0, SUPER updates, ConnectWise Control, Konica Minolta printers, Securly web filter (blocks RFC1918 in Chrome), FileVault enforced, Tailscale VPN.
 YOUR JOB: Use live device data when provided. Give numbered step-by-step field instructions. Be direct and brief — techs are in the field.
-COMMON ISSUES: Policy failures→flush MDM first. SUPER not running→launchctl list|grep super. Jamf Connect loop→network/IdP or delete pref file. FileVault stuck→Secure Token. Printers gone→re-push via Self Service.`;
+COMMON ISSUES: Policy failures→flush MDM first. SUPER not running→launchctl list|grep super. Jamf Connect loop→network/IdP or delete pref file. FileVault stuck→Secure Token, escalate to Bob. Printers gone→re-push via Self Service. Chrome+printer→Securly blocking RFC1918. ConnectWise→check agent/service/firewall.`;
 
 let sessionToken = sessionStorage.getItem("aria_token") || "";
 let currentUser  = JSON.parse(sessionStorage.getItem("aria_user") || "null");
@@ -449,11 +456,11 @@ async function checkBackend() {
     const d = await r.json();
     if(d.status === "ok") {
       document.querySelectorAll(".dot").forEach(el => el.className = "dot");
-      document.getElementById("login-status-text").textContent = "ARIA v4.0 · Online";
+      document.getElementById("login-status-text").textContent = "ARIA v4.0 · TRSD · Online";
     }
   } catch {
     document.querySelectorAll(".dot").forEach(el => el.className = "dot red");
-    document.getElementById("login-status-text").textContent = "ARIA v4.0 · Offline";
+    document.getElementById("login-status-text").textContent = "ARIA v4.0 · TRSD · Offline";
   }
 }
 
@@ -461,13 +468,31 @@ async function verifyAndRestore() {
   try {
     const r = await fetch("/api/auth/me", {headers: {"Authorization": `Bearer ${sessionToken}`}});
     if(r.ok) {
-      // Token still valid — go straight to setup
       techName = currentUser.display_name;
-      showScreen("setup");
-      document.getElementById("backend-text").textContent = `ARIA v4.0 · ${techName} · Online`;
-      document.getElementById("setup-note").textContent = `Welcome back, ${techName.split(" ")[0]}`;
-      document.getElementById("btn-start").disabled = false;
       if(currentUser.role === "admin") document.getElementById("btn-admin").style.display = "";
+      // Check if we were in the middle of a session
+      const savedSerial = sessionStorage.getItem("aria_active_serial");
+      const savedScreen = sessionStorage.getItem("aria_active_screen");
+      if(savedScreen === "chat") {
+        // Restore chat screen
+        showScreen("chat");
+        document.getElementById("chat").style.display = "flex";
+        document.getElementById("header-label").textContent = `ARIA · ${techName.split(" ")[0]}`;
+        document.getElementById("greeting").textContent = `Hey ${techName.split(" ")[0]} — what are we fixing?`;
+        loadHandoffLog();
+        loadClientConfig();
+        if(savedSerial) {
+          document.getElementById("lookup-input").value = savedSerial;
+          await lookupDevice(savedSerial);
+        }
+        fetch("/api/fleet/warm", {method:"POST", headers: authHeaders()}).catch(()=>{});
+      } else {
+        // Go to setup
+        showScreen("setup");
+        document.getElementById("backend-text").textContent = `ARIA v4.0 · ${techName} · Online`;
+        document.getElementById("setup-note").textContent = `Welcome back, ${techName.split(" ")[0]}`;
+        document.getElementById("btn-start").disabled = false;
+      }
     } else {
       clearSession();
       showScreen("login-screen");
@@ -546,6 +571,8 @@ function afterLogin() {
   if(currentUser?.role === "admin") document.getElementById("btn-admin").style.display = "";
   // Silently pre-warm fleet cache in background
   fetch("/api/fleet/warm", {method:"POST", headers: authHeaders()}).catch(()=>{});
+  // Load client config (ConnectWise URL etc)
+  loadClientConfig();
 }
 </script>
 
@@ -559,6 +586,7 @@ document.getElementById("btn-switch").addEventListener("click", switchUser);
 async function startSession() {
   const serial = document.getElementById("setup-serial").value.trim().toUpperCase();
   const user   = document.getElementById("setup-user").value.trim().toLowerCase();
+  sessionStorage.setItem("aria_active_screen", "chat");
   showScreen("chat");
   document.getElementById("chat").style.display = "flex";
   document.getElementById("header-label").textContent = `ARIA · ${techName.split(" ")[0]}`;
@@ -570,6 +598,8 @@ async function startSession() {
 
 function goHome() {
   messages = []; deviceData = null;
+  sessionStorage.removeItem("aria_active_serial");
+  sessionStorage.setItem("aria_active_screen", "chat");
   document.getElementById("messages").innerHTML = emptyStateHTML();
   document.getElementById("device-panel").classList.remove("visible");
   document.getElementById("device-content").innerHTML = "";
@@ -581,9 +611,10 @@ function goHome() {
 }
 
 async function switchUser() {
-  // Logout on server
   try { await fetch("/api/auth/logout", {method:"POST", headers: authHeaders()}); } catch {}
   clearSession();
+  sessionStorage.removeItem("aria_active_screen");
+  sessionStorage.removeItem("aria_active_serial");
   messages = []; deviceData = null; techName = "";
   document.getElementById("login-username").value = "";
   document.getElementById("login-password").value = "";
@@ -617,12 +648,33 @@ function switchTab(tab) {
 // ── Device lookup ─────────────────────────────────────────────────
 document.getElementById("btn-lookup").addEventListener("click", () => { const v = document.getElementById("lookup-input").value.trim(); if(v) doLookup(v); });
 document.getElementById("lookup-input").addEventListener("keydown", e => { if(e.key==="Enter") { const v=e.target.value.trim(); if(v) doLookup(v); } });
-document.getElementById("lookup-input").addEventListener("input", e => { const v=e.target.value.trim(); if(/^[A-Z0-9]{8,14}$/i.test(v)&&!v.includes(".")&&!v.includes("_")) e.target.value=v.toUpperCase(); });
+document.getElementById("lookup-input").addEventListener("input", e => {
+  const v = e.target.value;
+  const trimmed = v.trim();
+  // Auto-uppercase ONLY for pure serials: 8+ alphanumeric chars with NO separators at all
+  if(trimmed.length >= 8 && /^[A-Z0-9]+$/i.test(trimmed) && !/[.\s_\-]/.test(trimmed)) {
+    e.target.value = v.toUpperCase();
+  }
+  // Show live hint
+  const hint = document.getElementById("lookup-hint");
+  if(hint){
+    if(!trimmed){ hint.textContent=""; return; }
+    if(isSerialLike(trimmed)) hint.textContent = "🔵 serial";
+    else hint.textContent = "🟢 user / name";
+  }
+});
+
+function isSerialLike(v){
+  // Jamf serials: 8-14 alphanumeric chars, zero separators, AND must contain at least one digit
+  // Pure letters (e.g. "SAUNDERS") are names, not serials
+  return /^[A-Z0-9]{8,14}$/i.test(v) && !/[.\s_\-]/.test(v) && /\d/.test(v) && /[A-Z]/i.test(v);
+}
 
 async function doLookup(value) {
-  const isSerial = /^[A-Z0-9]{8,14}$/i.test(value) && !value.includes(".") && !value.includes("_");
-  if(isSerial) await lookupDevice(value.toUpperCase());
-  else await lookupUser(value.toLowerCase());
+  const v = value.trim();
+  if(!v) return;
+  if(isSerialLike(v)) await lookupDevice(v.toUpperCase());
+  else await lookupUser(v.toLowerCase());
 }
 
 async function lookupDevice(serial) {
@@ -632,6 +684,7 @@ async function lookupDevice(serial) {
     if(r.status === 401) { switchUser(); return; }
     if(!r.ok) { const e=await r.json(); throw new Error(e.error||"Not found"); }
     deviceData = await r.json();
+    sessionStorage.setItem("aria_active_serial", deviceData.serial);
     renderDeviceCard(deviceData);
   } catch(e) { deviceData=null; showPanel(`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`); }
 }
@@ -643,10 +696,43 @@ async function lookupUser(username) {
     if(r.status === 401) { switchUser(); return; }
     if(!r.ok) throw new Error("User not found");
     const data = await r.json();
-    if(!data.devices||!data.devices.length) { showPanel(`<div style="color:var(--amber);font-size:12px">⚠ No devices found for ${username}</div>`); return; }
-    if(data.devices.length === 1) { await lookupDevice(data.devices[0].serial_number||data.devices[0].serial); return; }
-    let html = `<div class="panel-title">DEVICES FOR ${username.toUpperCase()}</div>`;
-    data.devices.forEach(d => { html += `<div class="device-pick" onclick="lookupDevice('${d.serial_number||d.serial}')"><div class="device-pick-name">${d.name||d.serial_number||d.serial}</div><div class="device-pick-meta">${d.model||""} · ${d.serial_number||d.serial}</div></div>`; });
+    if(!data.devices||!data.devices.length) {
+      showPanel(`<div style="padding:16px">
+        <div style="color:var(--amber);font-size:13px;margin-bottom:8px">⚠ No devices found for <b>${username}</b></div>
+        <div style="color:rgba(74,222,128,.4);font-size:11px;line-height:1.6">
+          This username has no Macs assigned in Jamf.<br>
+          Try searching by serial number instead, or check the username spelling in Jamf.
+        </div>
+      </div>`);
+      return;
+    }
+    if(data.devices.length === 1) {
+      await lookupDevice(data.devices[0].serial_number||data.devices[0].serial);
+      return;
+    }
+    // Multiple devices — show a rich picker
+    let html = `<div class="panel-title">${data.devices.length} DEVICES — ${username.toUpperCase()}</div>`;
+    data.devices.forEach(d => {
+      const serial = d.serial_number || d.serial || "";
+      const name   = d.name || serial;
+      const model  = d.model || "";
+      const site   = d.site || d.location?.building || "";
+      const lastCI = d.last_contact_time || d.reportDate || "";
+      let checkinLabel = "";
+      let checkinColor = "rgba(74,222,128,.4)";
+      if(lastCI) {
+        const h = Math.round((Date.now() - new Date(lastCI).getTime()) / 3.6e6);
+        checkinLabel = h < 24 ? `${h}h ago` : `${Math.round(h/24)}d ago`;
+        checkinColor = h < 24 ? "var(--green)" : h < 168 ? "var(--amber)" : "var(--red)";
+      }
+      html += `<div class="device-pick" onclick="lookupDevice('${serial}')">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div class="device-pick-name">${name}</div>
+          ${checkinLabel ? `<span style="font-family:var(--mono);font-size:10px;color:${checkinColor}">${checkinLabel}</span>` : ""}
+        </div>
+        <div class="device-pick-meta">${model}${site ? " · " + site : ""}${serial ? " · " + serial : ""}</div>
+      </div>`;
+    });
     showPanel(html);
   } catch(e) { showPanel(`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`); }
 }
@@ -698,8 +784,6 @@ function renderDeviceCard(d) {
   if(ss)html+=eaRow("Status",ss,ss.toLowerCase()!=="ok"?"warn":"ok");
   if(sr)html+=eaRow("Last run",sr,isOlderThan14Days(sr)?"caution":"ok");
   if(sv)html+=eaRow("Version",sv,false);
-  if(sh)html+=eaRow("Hard deadline",sh+"h",parseInt(sh)<24?"warn":parseInt(sh)<72?"caution":false);
-  if(soft)html+=eaRow("Soft deadline",soft+"h",parseInt(soft)<24?"warn":false);
   if(sd&&sd!=="0")html+=eaRow("Deferrals",sd,parseInt(sd)>5?"warn":"caution");
   html+=`</div>`;
   html+=`<div class="ea-section"><div class="ea-title">JAMF CONNECT</div>`;
@@ -717,12 +801,12 @@ function renderDeviceCard(d) {
     <div id="protect-content" style="color:rgba(74,222,128,.3);font-size:11px;font-family:var(--mono)">Loading...</div>
   </div>`;
   html+=`<div class="action-row">
-    <button class="action-btn" onclick="sendAction('flush-mdm','Flush MDM')">Flush MDM</button>
-    <button class="action-btn danger" onclick="sendAction('restart','Restart')">Restart</button>
-    <button class="action-btn danger" onclick="sendAction('lock','Lock')">Lock</button>
+    <button class="action-btn" onclick="sendAction('flush-mdm','Blank Push Check-in')">Blank Push Check-in</button>
   </div>
   <div class="action-row" style="margin-top:5px">
     <button class="action-btn" style="background:rgba(99,102,241,.1);border-color:#4338ca;color:#a5b4fc" onclick="runAnalysis()">⚠ Analyze</button>
+    <button class="action-btn" style="background:rgba(14,116,144,.1);border-color:#0e7490;color:#67e8f9" onclick="launchConnectWise('${d.name||d.serial}')">🖥 Remote</button>
+    <button class="action-btn" style="background:rgba(22,163,74,.1);border-color:var(--border2);color:var(--green2)" onclick="openEmailModal('${d.email||""}','${d.realname||d.username||""}','${d.name||d.serial}','${d.serial}')">✉ Email</button>
   </div></div>`;
   document.getElementById("device-content").innerHTML = html;
   document.getElementById("device-panel").classList.add("visible");
@@ -740,7 +824,7 @@ async function loadProtectSection(serial) {
     if(!d.found) { el.innerHTML = eaRow("Status","Not in Protect","warn"); return; }
 
     // Connection status
-    const connColor = d.connection==="Connected" ? "ok" : (d.hours_offline > 24 ? "warn" : "caution");
+    const connColor = d.connection==="Connected" ? "ok" : (d.hours_offline > 2 ? "warn" : "caution");
     const connLabel = d.connection==="Connected" ? "✓ Connected" :
       (d.hours_offline ? `Offline ${d.hours_offline > 48 ? Math.round(d.hours_offline/24)+"d" : Math.round(d.hours_offline)+"h"}` : "Disconnected");
 
@@ -751,8 +835,9 @@ async function loadProtectSection(serial) {
     // Insights
     const total = (d.insights_pass||0) + (d.insights_fail||0);
     if(total > 0) {
-      const cls = d.insights_fail > 10 ? "warn" : d.insights_fail > 3 ? "caution" : "ok";
-      html += eaRow("Insights", `${d.insights_pass}✓ ${d.insights_fail}✗`, cls);
+      const failPct = Math.round((d.insights_fail / total) * 100);
+      const cls = d.insights_fail > 15 ? "warn" : d.insights_fail > 5 ? "caution" : "ok";
+      html += eaRow("Insights", `${d.insights_pass}✓ ${d.insights_fail}✗ (${failPct}% failing)`, cls);
     }
 
     // Open alerts
@@ -1010,14 +1095,14 @@ async function renderFleetHome(){
       <button class="fleet-query-btn" onclick="runFleetQuery('filevault_off')"><span>🔓 FileVault off</span><span class="fq-count warn" id="fq-filevault_off">...</span></button>
       <button class="fleet-query-btn" onclick="runFleetQuery('unmanaged')"><span>⚠ Unmanaged</span><span class="fq-count warn" id="fq-unmanaged">...</span></button>
       <button class="fleet-query-btn" onclick="runFleetQuery('super_noncompliant')"><span>🔄 SUPER non-compliant</span><span class="fq-count caution" id="fq-super_noncompliant">...</span></button>
-      <button class="fleet-query-btn" onclick="runFleetQuery('jc_missing')"><span>🔑 Jamf Connect missing</span><span class="fq-count caution" id="fq-jc_missing">—</span></button>
+      <button class="fleet-query-btn" onclick="runFleetQuery('jc_no_users')"><span>🔑 Jamf Connect no users</span><span class="fq-count caution" id="fq-jc_no_users">—</span></button>
     </div>
     <div style="margin-bottom:14px">
       <div class="panel-title" style="margin-bottom:8px">JAMF PROTECT</div>
       <button class="fleet-query-btn" onclick="runFleetQuery('protect_alerts')"><span>🛡 Open threat alerts</span><span class="fq-count warn" id="fq-protect_alerts">—</span></button>
       <button class="fleet-query-btn" onclick="runFleetQuery('protect_offline')"><span>📡 Protect offline &gt;24h</span><span class="fq-count caution" id="fq-protect_offline">—</span></button>
     </div>
-    ${fleetSites.length?`<div style="margin-bottom:14px"><div class="panel-title" style="margin-bottom:8px">BY SITE</div><div style="display:flex;flex-wrap:wrap;gap:4px">${fleetSites.map(s=>`<span class="site-btn" onclick="runFleetQuery('site:${encodeURIComponent(s)}')">${s}</span>`).join("")}</div></div>`:""}
+    ${fleetSites.length?`<div style="margin-bottom:14px"><div class="panel-title" style="margin-bottom:8px">BY SITE</div><div style="display:flex;flex-wrap:wrap;gap:4px">${fleetSites.map(s=>`<span class="site-btn" onclick="runFleetQuery('site:${s}')">${s}</span>`).join("")}</div></div>`:""}
     <div><div class="panel-title" style="margin-bottom:8px">ALL DEVICES</div>
     <button class="fleet-query-btn" onclick="runFleetQuery('all')"><span>🖥 Full fleet</span><span class="fq-count" id="fq-all">—</span></button></div>
     <div style="margin-top:14px"><button onclick="loadFleetCounts(true)" style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--border);background:none;color:rgba(74,222,128,.3);font-size:10px;font-family:var(--mono);cursor:pointer">↻ Refresh cache</button></div>`;
@@ -1030,7 +1115,7 @@ async function loadFleetCounts(force=false){
     const d=await r.json();
     if(d.cache_age_minutes!==null){const l=document.getElementById("fleet-cache-label");if(l)l.textContent=`cached ${d.cache_age_minutes}m ago`;}
     const rs=d.results||[];
-    const counts={stale_7:rs.filter(x=>x.hours_since>168).length,stale_14:rs.filter(x=>x.hours_since>336).length,stale_30:rs.filter(x=>x.hours_since>720).length,filevault_off:rs.filter(x=>!x.filevault).length,unmanaged:rs.filter(x=>!x.managed).length,super_noncompliant:rs.filter(x=>x.super_compliant&&x.super_compliant.toLowerCase().includes("non")).length,jc_missing:rs.filter(x=>!x.jc_version||x.jc_version==="Does not exist"||x.jc_version==="").length,all:rs.length};
+    const counts={stale_7:rs.filter(x=>x.hours_since>168).length,stale_14:rs.filter(x=>x.hours_since>336).length,stale_30:rs.filter(x=>x.hours_since>720).length,filevault_off:rs.filter(x=>!x.filevault).length,unmanaged:rs.filter(x=>!x.managed).length,super_noncompliant:rs.filter(x=>x.super_compliant&&x.super_compliant.toLowerCase().includes("non")).length,jc_no_users:rs.filter(x=>!x.jc_users||x.jc_users==="0"||x.jc_users==="").length,all:rs.length};
     for(const[q,c]of Object.entries(counts)){const el=document.getElementById(`fq-${q}`);if(el)el.textContent=c;}
   }catch(e){console.error("Fleet counts failed:",e);}
   // Load Protect counts separately (async, non-blocking)
@@ -1069,6 +1154,7 @@ function renderFleetResults(data){
 async function loadFleetDevice(serial){
   if(!serial)return;
   document.getElementById("lookup-input").value=serial;
+  closeFleet();
   await lookupDevice(serial);
 }
 </script>
@@ -1205,7 +1291,7 @@ async function loadAdminAudit(){
       </div>
     </div>
     <div class="modal-footer" id="analyze-footer" style="display:none">
-      <button class="mbtn secondary" onclick="escalateAnalysis()">📤 Escalate</button>
+      <button class="mbtn secondary" onclick="escalateAnalysis()">📤 Escalate to Bob</button>
       <button class="mbtn secondary" onclick="copyAnalysis()">📋 Copy Report</button>
       <button class="mbtn primary" onclick="closeAnalyze()">Done</button>
     </div>
@@ -1214,207 +1300,271 @@ async function loadAdminAudit(){
 
 <script>
 // ── Conflict & Security Analyzer ─────────────────────────────────
-let lastAnalysisText="";
-function closeAnalyze(){document.getElementById("analyze-modal").classList.remove("visible");}
+let lastAnalysisText = "";
+let lastAnalysisData = null;
 
 async function runAnalysis(){
-  if(!deviceData)return;
-  document.getElementById("analyze-modal").classList.add("visible");
-  document.getElementById("analyze-footer").style.display="none";
-  document.getElementById("analyze-title").textContent=`⚠ Analyzing ${deviceData.name||deviceData.serial}...`;
-  document.getElementById("analyze-body").innerHTML=`
-    <div style="text-align:center;padding:40px;color:rgba(74,222,128,.4);font-family:var(--mono);font-size:13px">
-      <div style="font-size:28px;margin-bottom:16px;animation:pulse 1.5s ease-in-out infinite">⚙</div>
-      Pulling profiles, policies, security data...<br>
-      <span style="font-size:11px;color:rgba(74,222,128,.2);margin-top:8px;display:block">This takes about 10 seconds</span>
-    </div>`;
+  if(!deviceData){ appendMessage("assistant","⚠ Look up a device first."); return; }
+  const modal = document.getElementById("analyze-modal");
+  const body  = document.getElementById("analyze-body");
+  const footer= document.getElementById("analyze-footer");
+  body.innerHTML = `<div style="text-align:center;padding:40px;color:rgba(74,222,128,.4);font-family:var(--mono);font-size:13px"><div style="font-size:28px;margin-bottom:12px">⚙</div>Running analysis on ${deviceData.name||deviceData.serial}...</div>`;
+  footer.style.display = "none";
+  modal.classList.add("visible");
   try{
-    const r=await fetch(`/api/device/${deviceData.serial}/analyze`,{method:"POST",headers:authHeaders()});
+    const r = await fetch(`/api/device/${deviceData.serial}/analyze`, {method:"POST", headers: authHeaders()});
     if(r.status===401){switchUser();return;}
-    if(!r.ok){const e=await r.json();throw new Error(e.error||"Analysis failed");}
-    renderAnalysis(await r.json());
+    const d = await r.json();
+    if(d.error){ body.innerHTML=`<div style="color:var(--red);padding:20px">⚠ ${d.error}</div>`; return; }
+    lastAnalysisData = d;
+    renderAnalysis(d);
+    footer.style.display = "flex";
+    appendMessage("assistant", `⚠ Analysis for ${d.device_name}: ${d.high_count} HIGH · ${d.medium_count} MEDIUM · ${d.low_count} LOW issues.\n\n${d.ai_summary}`);
   }catch(e){
-    document.getElementById("analyze-body").innerHTML=`<div style="color:var(--red);padding:20px">⚠ ${e.message}</div>`;
+    body.innerHTML=`<div style="color:var(--red);padding:20px">⚠ Analysis failed — ${e.message}</div>`;
   }
 }
 
 function renderAnalysis(d){
-  document.getElementById("analyze-title").textContent=`⚠ Analysis — ${d.device_name||d.serial}`;
-  lastAnalysisText=`ARIA Conflict & Security Analysis\nDevice: ${d.device_name} (${d.model}, macOS ${d.os_version}, ${d.site})\nSerial: ${d.serial}\nDate: ${new Date().toLocaleString()}\nTech: ${techName}\n\nSUMMARY\n${d.ai_summary}\n\nSTATS\n${d.high_count} HIGH · ${d.medium_count} MEDIUM · ${d.low_count} LOW\nProfiles: ${d.profile_count} · Smart Groups: ${d.group_count}\n\nISSUES\n${d.issues.length?d.issues.map(i=>`[${i.severity}][${i.category}] ${i.title}\n  Detail: ${i.detail}\n  Action: ${i.action}`).join('\n\n'):'No issues detected.'}`;
+  const body = document.getElementById("analyze-body");
 
-  let html=`<div class="analyze-stats">
-    <span class="stat-pill ${d.high_count>0?'red':'green'}">${d.high_count} HIGH</span>
-    <span class="stat-pill ${d.medium_count>0?'amber':'green'}">${d.medium_count} MEDIUM</span>
-    <span class="stat-pill green">${d.low_count} LOW</span>
-    <span class="stat-pill blue">${d.profile_count} profiles · ${d.group_count} groups</span>
-  </div>
-  <div class="analyze-summary">${d.ai_summary}</div>`;
+  // Header stats + Jamf deep link
+  const cid = deviceData?.id || '';
+  const jamfDeviceUrl = jamfUrl && cid ? `${jamfUrl}/computers.html?id=${cid}&o=r` : "";
+  const jamfLink = jamfDeviceUrl
+    ? `<a href="${jamfDeviceUrl}" target="_blank" style="font-family:var(--mono);font-size:10px;color:var(--green2);text-decoration:none;border:1px solid var(--border2);padding:3px 8px;border-radius:5px;white-space:nowrap">Open in Jamf ↗</a>` : "";
 
-  if(!d.issues.length){
-    html+=`<div style="text-align:center;padding:20px;color:var(--green);font-size:14px">✅ No conflicts or security issues detected</div>`;
-  }else{
-    const order={HIGH:0,MEDIUM:1,LOW:2};
-    [...d.issues].sort((a,b)=>(order[a.severity]||0)-(order[b.severity]||0)).forEach(i=>{
-      html+=`<div class="issue-row ${i.severity}">
-        <div><span class="issue-severity ${i.severity}">${i.severity}</span>
-        <span style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.3);margin-left:6px">${i.category}</span></div>
-        <div class="issue-title">${i.title}</div>
-        <div class="issue-detail">${i.detail}</div>
-        ${i.action?`<div class="issue-action">→ ${i.action}</div>`:''}
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div class="analyze-stats" style="margin-bottom:0">
+      <span class="stat-pill ${d.high_count>0?"red":"green"}">${d.high_count} HIGH</span>
+      <span class="stat-pill ${d.medium_count>0?"amber":"green"}">${d.medium_count} MEDIUM</span>
+      <span class="stat-pill green">${d.low_count} LOW</span>
+      <span class="stat-pill blue">${d.profile_count} profiles · ${d.group_count} groups</span>
+    </div>
+    ${jamfLink}
+  </div>`;
+
+  if(d.ai_summary){
+    html += `<div class="analyze-summary">${d.ai_summary.replace(/\n/g,"<br>")}</div>`;
+  }
+
+  // Profile list toggle
+  if(d.profiles && d.profiles.length > 0){
+    const profileLinks = d.profiles.map(p => {
+      const url = `${jamfUrl}/computerConfigurationProfiles.html${p.id?`?id=${p.id}`:""}`;
+      return `<a href="${url}" target="_blank" style="color:var(--green2);font-family:var(--mono);font-size:10px;display:block;padding:2px 0;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${p.name}">${p.name||"?"}</a>`;
+    }).join("");
+    html += `<details style="margin-bottom:12px"><summary style="cursor:pointer;color:rgba(74,222,128,.5);font-size:11px;font-family:var(--mono);padding:6px 0">${d.profiles.length} config profiles applied ▾</summary>
+      <div style="background:var(--bg0);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-top:4px;max-height:160px;overflow-y:auto">${profileLinks}</div></details>`;
+  }
+
+  if(!d.issues || d.issues.length === 0){
+    html += `<div style="text-align:center;padding:20px;color:var(--green);font-family:var(--mono);font-size:13px">✓ No issues detected — device looks healthy</div>`;
+  } else {
+    d.issues.forEach(issue => {
+      const jamfLink = jamfUrl ? (() => {
+        if(issue.category==="CONFLICT") return `<a href="${jamfUrl}/computerConfigurationProfiles.html" target="_blank" style="color:var(--green2);font-family:var(--mono);font-size:10px;text-decoration:underline">View profiles in Jamf ↗</a>`;
+        if(issue.category==="POLICY") return `<a href="${jamfUrl}/policies.html" target="_blank" style="color:var(--green2);font-family:var(--mono);font-size:10px;text-decoration:underline">View policies in Jamf ↗</a>`;
+        if(jamfDeviceUrl && ["SECURITY","MDM","INTELLIGENCE","CORRELATION"].includes(issue.category)) return `<a href="${jamfDeviceUrl}" target="_blank" style="color:var(--green2);font-family:var(--mono);font-size:10px;text-decoration:underline">Open device in Jamf ↗</a>`;
+        return "";
+      })() : "";
+      html += `<div class="issue-row ${issue.severity}">
+        <span class="issue-severity ${issue.severity}">${issue.severity}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.4);margin-left:8px">${issue.category}</span>
+        <div class="issue-title">${issue.title}</div>
+        <div class="issue-detail">${issue.detail}</div>
+        ${issue.action?`<div class="issue-action">→ ${issue.action}</div>`:""}
+        ${jamfLink}
       </div>`;
     });
   }
-  html+=`<div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.2);text-align:right;margin-top:8px">Generated ${new Date().toLocaleString()} · Tech: ${techName}</div>`;
-  document.getElementById("analyze-body").innerHTML=html;
-  document.getElementById("analyze-footer").style.display="flex";
+
+  // Protect summary if available
+  if(d.protect){
+    const p = d.protect;
+    const alertCount = p.open_alerts ? p.open_alerts.length : 0;
+    html += `<div style="margin-top:8px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2)">
+      <div style="font-family:var(--mono);font-size:10px;color:rgba(74,222,128,.35);margin-bottom:6px">JAMF PROTECT</div>
+      <div style="font-size:12px;color:${p.connection==="Connected"?"var(--green)":"var(--amber)"}">
+        ${p.connection==="Connected"?"✓ Connected":`⚠ ${p.hours_offline?`Offline ${Math.round(p.hours_offline)}h`:"Disconnected"}`}
+        ${alertCount>0?` · <span style="color:var(--red)">🔴 ${alertCount} open alert${alertCount>1?"s":""}</span>`:" · ✓ No alerts"}
+      </div>
+    </div>`;
+  }
+
+  // Build text report for copy/escalate
+  lastAnalysisText = `ARIA Analysis — ${d.device_name} (${d.serial})\n${new Date().toLocaleString()}\nTech: ${techName}\n\n${d.ai_summary}\n\n` +
+    (d.issues||[]).map(i=>`[${i.severity}][${i.category}] ${i.title}\n  ${i.detail}\n  → ${i.action}`).join("\n\n");
+
+  body.innerHTML = html;
 }
 
-async function copyAnalysis(){
-  if(!lastAnalysisText)return;
-  try{
-    await navigator.clipboard.writeText(lastAnalysisText);
-    const btn=document.querySelector("#analyze-modal .mbtn.secondary:last-of-type");
-    if(btn){btn.textContent="✓ Copied!";setTimeout(()=>{btn.textContent="📋 Copy Report";},2000);}
-  }catch{}
+function closeAnalyze(){
+  document.getElementById("analyze-modal").classList.remove("visible");
 }
 
 async function escalateAnalysis(){
-  if(!lastAnalysisText)return;
-  const btn = document.querySelector("#analyze-modal .mbtn.secondary:first-of-type");
-  const origText = btn ? btn.textContent : "";
-
-  // Try Slack first
-  let slackSent = false;
+  if(!lastAnalysisData){
+    appendMessage("assistant","⚠ Run the analysis first before escalating.");
+    return;
+  }
+  const msg = `🔍 *ARIA Analysis — ${lastAnalysisData.device_name}* (${lastAnalysisData.serial})\n` +
+    `*${lastAnalysisData.high_count} HIGH · ${lastAnalysisData.medium_count} MEDIUM · ${lastAnalysisData.low_count} LOW*\n\n` +
+    `${lastAnalysisData.ai_summary}\n\n_Escalated by ${techName}_`;
+  const btn = document.querySelector('#analyze-footer .mbtn.secondary');
+  const origText = btn?.textContent || '';
   try{
-    const r = await fetch("/api/escalate",{method:"POST",headers:authHeaders(),body:JSON.stringify({text:lastAnalysisText})});
+    if(btn){ btn.textContent = "Sending..."; btn.disabled = true; }
+    const r = await fetch("/api/escalate", {method:"POST", headers: authHeaders(), body: JSON.stringify({message: msg, serial: lastAnalysisData.serial, summary: lastAnalysisData.ai_summary})});
     const d = await r.json();
-    slackSent = d.success;
-  }catch{}
-
-  // Always post a brief note to chat (not the full report)
-  const device = deviceData ? (deviceData.name||deviceData.serial) : "device";
-  const issueCount = lastAnalysisText.match(/\[(HIGH|MEDIUM|LOW)\]/g)?.length || 0;
-  const highCount  = lastAnalysisText.match(/\[HIGH\]/g)?.length || 0;
-  const summary    = lastAnalysisText.split('\n').find(l => l.startsWith('SUMMARY'))
-    ? lastAnalysisText.split('SUMMARY\n')[1]?.split('\n\n')[0] : "";
-
-  appendMessage("assistant",
-    `📤 Analysis escalated for ${device}\n` +
-    `${highCount > 0 ? `🔴 ${highCount} HIGH severity issues` : `✓ ${issueCount} issue(s) flagged`}\n` +
-    (slackSent ? `✓ Sent to Slack` : `⚠ Slack not configured — copy the report manually`) +
-    (summary ? `\n\n${summary}` : "")
-  );
-
-  if(btn){btn.textContent="✓ Escalated!";setTimeout(()=>{btn.textContent=origText;},2000);}
-  closeAnalyze();
-}
-</script>
-
-<!-- Admin JS -->
-<script>
-let adminTab="users";
-function openAdmin(){document.getElementById("admin-modal").classList.add("visible");switchAdminTab("users");}
-function closeAdmin(){document.getElementById("admin-modal").classList.remove("visible");}
-function switchAdminTab(tab){
-  adminTab=tab;
-  document.querySelectorAll(".atab").forEach((el,i)=>el.classList.toggle("active",["users","audit"][i]===tab));
-  if(tab==="users")loadAdminUsers();else loadAdminAudit();
+    if(d.success){
+      if(btn){ btn.textContent = "✓ Sent to Slack!"; btn.style.background = "var(--green4)"; btn.style.color = "#f0fdf4"; }
+      setTimeout(()=>{ if(btn){ btn.textContent = origText; btn.disabled = false; btn.style.background = ""; btn.style.color = ""; } }, 3000);
+      appendMessage("assistant","📤 Analysis escalated to #aria-alerts in Slack.");
+    } else {
+      if(btn){ btn.textContent = "⚠ Failed"; btn.disabled = false; }
+      setTimeout(()=>{ if(btn) btn.textContent = origText; }, 2000);
+    }
+  }catch{
+    if(btn){ btn.textContent = "⚠ Failed"; btn.disabled = false; }
+    setTimeout(()=>{ if(btn) btn.textContent = origText; }, 2000);
+  }
 }
 
-async function loadAdminUsers(){
-  const el=document.getElementById("admin-body");
-  el.innerHTML='<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">Loading...</div>';
+async function copyAnalysis(){
+  if(!lastAnalysisText){
+    appendMessage("assistant","⚠ Run the analysis first before copying.");
+    return;
+  }
   try{
-    const r=await fetch("/api/admin/users",{headers:authHeaders()});
-    const d=await r.json();const users=d.users||[];
-    let html=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:20px">
-      <div class="panel-title" style="margin-bottom:10px">ADD NEW TECH</div>
-      <div style="display:grid;grid-template-columns:1fr 2fr auto;gap:8px;margin-bottom:8px">
-        <input type="text" id="new-user-username" placeholder="username" style="padding:8px 10px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:13px;font-family:var(--sans)">
-        <input type="text" id="new-user-name" placeholder="Display Name (e.g. John Smith)" style="padding:8px 10px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:13px;font-family:var(--sans)">
-        <select id="new-user-role" style="padding:8px 10px;border-radius:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--green3);font-size:13px;font-family:var(--sans);width:80px">
-          <option value="tech">tech</option><option value="admin">admin</option>
-        </select>
-      </div>
-      <button onclick="addUser()" style="width:100%;padding:8px;border-radius:6px;border:none;background:var(--green4);color:#f0fdf4;font-size:13px;cursor:pointer;font-family:var(--sans)">Add User</button>
-      <div id="add-user-result" style="margin-top:10px"></div>
-    </div>
-    <div class="panel-title" style="margin-bottom:10px">CURRENT USERS (${users.length})</div>`;
-    users.forEach(u=>{
-      html+=`<div class="user-row">
-        <div style="flex:1"><div style="color:var(--green3);font-size:13px">${u.display_name}</div>
-        <div style="color:rgba(74,222,128,.4);font-family:var(--mono);font-size:11px">${u.username}${u.must_change_password?' · <span style="color:var(--amber)">⚠ must change password</span>':''}</div></div>
-        <span class="user-badge ${u.role}">${u.role}</span>
-        <button class="ubtn" onclick="resetUserPassword('${u.username}','${u.display_name}')">Reset PW</button>
-        ${u.username!==currentUser?.username?`<button class="ubtn danger" onclick="removeUser('${u.username}','${u.display_name}')">Remove</button>`:`<span style="font-size:11px;color:rgba(74,222,128,.2);font-family:var(--mono)">(you)</span>`}
-      </div>`;
+    await navigator.clipboard.writeText(lastAnalysisText);
+    appendMessage("assistant","📋 Analysis report copied to clipboard.");
+  }catch{ appendMessage("assistant","⚠ Could not copy — try allowing clipboard access."); }
+}
+
+// ── ConnectWise & Email ───────────────────────────────────────────
+let cwUrl = "";
+let jamfUrl = "";
+let emailSerial = "";
+
+// Load ConnectWise URL from server on startup
+async function loadClientConfig(){
+  try{
+    const r = await fetch("/api/config/client", {headers: authHeaders()});
+    if(r.ok){ const d = await r.json(); cwUrl = d.connectwise_url || ""; jamfUrl = d.jamf_url || ""; }
+  }catch{}
+}
+
+function launchConnectWise(deviceName){
+  if(!deviceName) return;
+  const base = cwUrl || "https://soesd.screenconnect.com";
+  // ScreenConnect deep link — opens Host page filtered to device name
+  const url = `${base}/Host#Access/All%20Machines/${encodeURIComponent(deviceName)}/Join`;
+  window.open(url, "_blank");
+  appendMessage("assistant", `🖥 Opening ConnectWise remote session for ${deviceName}...`);
+}
+
+function openEmailModal(email, realname, deviceName, serial){
+  emailSerial = serial;
+  document.getElementById("email-modal-title").textContent = `✉ Email ${realname || "User"}`;
+  document.getElementById("email-to").value = email || "";
+  document.getElementById("email-subject").value = `Regarding your Mac — ${deviceName}`;
+  document.getElementById("email-body").value = "";
+  document.getElementById("email-modal").classList.add("visible");
+  // Focus the body if email is pre-filled, otherwise focus the to field
+  setTimeout(()=>{
+    if(email) document.getElementById("email-body").focus();
+    else document.getElementById("email-to").focus();
+  }, 100);
+}
+
+function closeEmail(){ document.getElementById("email-modal").classList.remove("visible"); }
+
+function emailTemplate(type){
+  const device = deviceData ? (deviceData.name || deviceData.serial) : "your Mac";
+  const name   = deviceData ? (deviceData.realname || deviceData.username || "there") : "there";
+  const first  = name.split(" ")[0].split(".")[0];
+  const templates = {
+    update: {
+      subject: `Action Required — macOS Update for ${device}`,
+      body: `Hi ${first},\n\nYour Mac (${device}) needs a macOS software update. Please save your work and allow the update to complete at your earliest convenience.\n\nIf you have any questions, please don't hesitate to reach out.\n\nThanks,\n${techName}\nTRSD Tech Department`
+    },
+    restart: {
+      subject: `Action Required — Restart Needed for ${device}`,
+      body: `Hi ${first},\n\nYour Mac (${device}) needs to be restarted to apply recent updates and maintenance changes.\n\nPlease save all open work and restart your computer as soon as possible.\n\nThanks,\n${techName}\nTRSD Tech Department`
+    },
+    printer: {
+      subject: `Printer Issue — ${device}`,
+      body: `Hi ${first},\n\nWe're aware of a printer issue affecting your Mac (${device}). We're working on a fix — you should see it resolved shortly via Self Service.\n\nIf the issue persists after 30 minutes, please reply to this email.\n\nThanks,\n${techName}\nTRSD Tech Department`
+    },
+    pickup: {
+      subject: `Your Device is Ready for Pickup`,
+      body: `Hi ${first},\n\nYour Mac (${device}) has been repaired and is ready for pickup at the tech office.\n\nPlease stop by at your earliest convenience during school hours.\n\nThanks,\n${techName}\nTRSD Tech Department`
+    }
+  };
+  const t = templates[type];
+  if(t){
+    document.getElementById("email-subject").value = t.subject;
+    document.getElementById("email-body").value = t.body;
+    document.getElementById("email-body").focus();
+  }
+}
+
+async function sendEmail(){
+  const to      = document.getElementById("email-to").value.trim();
+  const subject = document.getElementById("email-subject").value.trim();
+  const body    = document.getElementById("email-body").value.trim();
+  if(!to || !subject || !body){ alert("Please fill in all fields."); return; }
+  try{
+    const r = await fetch(`/api/device/${emailSerial}/email`, {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({to, subject, body})
     });
-    el.innerHTML=html;
-  }catch(e){el.innerHTML=`<div style="color:var(--red)">⚠ ${e.message}</div>`;}
+    const d = await r.json();
+    if(d.mailto){
+      // Open in default mail client
+      window.location.href = d.mailto;
+      appendMessage("assistant", `✉ Email drafted to ${to}\nSubject: ${subject}`);
+      closeEmail();
+    }
+  }catch(e){ console.error("Email error:", e); }
 }
 
-async function addUser(){
-  const username=document.getElementById("new-user-username").value.trim().toLowerCase();
-  const display=document.getElementById("new-user-name").value.trim();
-  const role=document.getElementById("new-user-role").value;
-  const resultEl=document.getElementById("add-user-result");
-  if(!username||!display){resultEl.innerHTML='<div style="color:var(--red);font-size:12px">Enter username and display name</div>';return;}
-  try{
-    const r=await fetch("/api/admin/users",{method:"POST",headers:authHeaders(),body:JSON.stringify({username,display_name:display,role})});
-    const d=await r.json();
-    if(!r.ok){resultEl.innerHTML=`<div style="color:var(--red);font-size:12px">⚠ ${d.error}</div>`;return;}
-    resultEl.innerHTML=`<div style="background:var(--bg0);border:1px solid var(--border2);border-radius:8px;padding:14px">
-      <div style="color:var(--green);font-family:var(--mono);font-size:12px;margin-bottom:8px">✓ ${d.display_name} added</div>
-      <div style="color:rgba(74,222,128,.5);font-size:11px;margin-bottom:6px">Temp password — give this to the tech:</div>
-      <div style="color:var(--green);font-family:var(--mono);font-size:20px;letter-spacing:.15em;padding:8px 0">${d.temp_password}</div>
-      <div style="color:rgba(74,222,128,.3);font-size:11px">They will be prompted to change it on first login.</div>
-      <button onclick="this.closest('div').parentElement.remove();loadAdminUsers()" style="margin-top:10px;width:100%;padding:6px;border-radius:6px;border:1px solid var(--border2);background:none;color:var(--green2);font-size:12px;font-family:var(--mono);cursor:pointer">✓ Got it — dismiss</button>
-    </div>`;
-    document.getElementById("new-user-username").value="";
-    document.getElementById("new-user-name").value="";
-  }catch(e){resultEl.innerHTML=`<div style="color:var(--red);font-size:12px">⚠ ${e.message}</div>`;}
-}
-
-async function resetUserPassword(username,displayName){
-  try{
-    const r=await fetch(`/api/admin/users/${username}/reset`,{method:"POST",headers:authHeaders()});
-    const d=await r.json();if(!r.ok)return;
-    const el=document.getElementById("admin-body");
-    const banner=document.createElement("div");
-    banner.style.cssText="position:sticky;top:0;background:var(--bg1);border:1px solid var(--border2);border-radius:8px;padding:14px;margin-bottom:16px;z-index:10";
-    banner.innerHTML=`<div style="color:var(--green);font-family:var(--mono);font-size:12px;margin-bottom:6px">✓ Password reset for ${displayName}</div>
-      <div style="color:rgba(74,222,128,.5);font-size:11px">Temp password:</div>
-      <div style="color:var(--green);font-family:var(--mono);font-size:20px;letter-spacing:.15em;margin-top:6px;padding:8px 0">${d.temp_password}</div>
-      <button onclick="this.parentElement.remove();loadAdminUsers()" style="margin-top:8px;width:100%;padding:5px;border-radius:5px;border:1px solid var(--border2);background:none;color:var(--green2);font-size:12px;font-family:var(--mono);cursor:pointer">✓ Got it — dismiss</button>`;
-    el.prepend(banner);
-  }catch{}
-}
-
-async function removeUser(username,displayName){
-  if(!confirm(`Remove ${displayName}? They will lose access immediately.`))return;
-  try{await fetch(`/api/admin/users/${username}`,{method:"DELETE",headers:authHeaders()});loadAdminUsers();}catch{}
-}
-
-async function loadAdminAudit(){
-  const el=document.getElementById("admin-body");
-  el.innerHTML='<div style="color:rgba(74,222,128,.4);font-size:12px;text-align:center;padding:20px">Loading...</div>';
-  try{
-    const r=await fetch("/api/admin/audit?limit=100",{headers:authHeaders()});
-    const d=await r.json();const entries=d.entries||[];
-    if(!entries.length){el.innerHTML='<div style="color:rgba(74,222,128,.3);font-size:12px;text-align:center;padding:20px">No audit entries yet</div>';return;}
-    el.innerHTML=entries.map(e=>{
-      const dt=new Date(e.ts).toLocaleString([],{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
-      return`<div class="audit-row">
-        <span class="audit-action ${e.action}">${e.action}</span>
-        <div style="flex:1"><div class="audit-detail">${e.detail}</div><div style="color:rgba(74,222,128,.3);font-size:10px;font-family:var(--mono)">${e.tech}</div></div>
-        <div class="audit-meta">${dt}<br>${e.ip||""}</div>
-      </div>`;
-    }).join("");
-  }catch(e){el.innerHTML=`<div style="color:var(--red)">⚠ ${e.message}</div>`;}
-}
-
-checkBackend();
 </script>
+
+<!-- ══ EMAIL MODAL ══ -->
+<div id="email-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width:540px">
+    <div class="modal-header">
+      <span class="modal-title" id="email-modal-title">✉ Email User</span>
+      <button class="modal-close" onclick="closeEmail()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="email-field">
+        <label>TO</label>
+        <input type="text" id="email-to" placeholder="user@threerivers.k12.or.us">
+      </div>
+      <div class="email-field">
+        <label>SUBJECT</label>
+        <input type="text" id="email-subject" placeholder="Regarding your Mac...">
+      </div>
+      <div class="email-field">
+        <label>MESSAGE</label>
+        <textarea id="email-body" placeholder="Type your message here..."></textarea>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="emailTemplate('update')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--green2);font-size:11px;font-family:var(--mono);cursor:pointer">📋 macOS Update</button>
+        <button onclick="emailTemplate('restart')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--green2);font-size:11px;font-family:var(--mono);cursor:pointer">📋 Restart Needed</button>
+        <button onclick="emailTemplate('printer')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--green2);font-size:11px;font-family:var(--mono);cursor:pointer">📋 Printer Issue</button>
+        <button onclick="emailTemplate('pickup')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--green2);font-size:11px;font-family:var(--mono);cursor:pointer">📋 Device Pickup</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="mbtn secondary" onclick="closeEmail()">Cancel</button>
+      <button class="mbtn primary" onclick="sendEmail()">Open in Mail →</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

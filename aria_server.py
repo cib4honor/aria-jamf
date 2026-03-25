@@ -3,10 +3,14 @@ ARIA Backend Server
 Runs on your Mac as a LaunchAgent on port 5001 (HTTPS).
 """
 
-import os, time, logging, json, secrets
+import os, time, logging, json, secrets, warnings
 from functools import wraps
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+
+# Suppress LibreSSL/OpenSSL version mismatch noise from urllib3 on macOS
+warnings.filterwarnings("ignore", message=".*OpenSSL.*")
+warnings.filterwarnings("ignore", message=".*LibreSSL.*")
 
 import requests
 import bcrypt
@@ -27,6 +31,12 @@ logging.basicConfig(
     ]
 )
 log = logging.getLogger("aria")
+log.propagate = False
+# Suppress werkzeug's duplicate access log and exception log
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
+logging.getLogger("werkzeug").propagate = False
+# Suppress Flask's own exception logger to avoid duplicate error entries
+logging.getLogger("flask.app").propagate = False
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 CORS(app, origins="*")
@@ -42,6 +52,8 @@ SESSION_HOURS   = int(os.environ.get("ARIA_SESSION_HOURS", 8))
 USERS_FILE      = BASE_DIR / "config" / "users.json"
 AUDIT_FILE      = BASE_DIR / "audit_log.json"
 LOG_FILE        = BASE_DIR / "handoff_log.json"
+CONNECTWISE_URL = os.environ.get("CONNECTWISE_URL","").rstrip("/")
+SMTP_FROM       = os.environ.get("SMTP_FROM","")
 
 # ── Rate limiting (in-memory) ─────────────────────────────────────
 _failed_logins = {}   # ip -> {"count": N, "lockout_until": timestamp}
@@ -163,7 +175,10 @@ def get_computer_id(serial: str):
     if resp.status_code == 404:
         return None
     resp.raise_for_status()
-    return resp.json()["computer"]["general"]["id"]
+    try:
+        return resp.json()["computer"]["general"]["id"]
+    except (ValueError, KeyError, TypeError):
+        return None
 
 def send_mdm_command(computer_id: int, command: str) -> dict:
     resp = requests.post(
@@ -388,7 +403,10 @@ def chat_proxy():
         headers={"x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
         json=payload, timeout=30,
     )
-    return jsonify(resp.json()), resp.status_code
+    try:
+        return jsonify(resp.json()), resp.status_code
+    except ValueError:
+        return jsonify({"error": "Invalid response from Anthropic API"}), 502
 
 # ── Device ────────────────────────────────────────────────────────
 @app.route("/api/device/<serial>")
@@ -396,18 +414,28 @@ def chat_proxy():
 def get_device(serial):
     serial = serial.upper().strip()
     log.info("Device lookup: %s by %s", serial, request.user.get("sub","?"))
-    resp = requests.get(f"{JAMF_URL}/JSSResource/computers/serialnumber/{serial}", headers=jamf_headers(), timeout=10)
+    try:
+        resp = requests.get(f"{JAMF_URL}/JSSResource/computers/serialnumber/{serial}", headers=jamf_headers(), timeout=15)
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Jamf API timed out"}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Jamf connection error: {e}"}), 502
     if resp.status_code == 404:
         return jsonify({"error": f"Device not found: {serial}"}), 404
-    resp.raise_for_status()
-    c   = resp.json()["computer"]
+    try:
+        resp.raise_for_status()
+        c = resp.json()["computer"]
+    except requests.exceptions.HTTPError:
+        return jsonify({"error": f"Jamf returned HTTP {resp.status_code}"}), 502
+    except (ValueError, KeyError) as e:
+        return jsonify({"error": f"Unexpected Jamf response: {e}"}), 502
     gen = c.get("general", {})
     hw  = c.get("hardware", {})
     loc = c.get("location", {})
     raw_ea  = c.get("extension_attributes", {})
     ea_list = raw_ea if isinstance(raw_ea, list) else raw_ea.get("extension_attribute", [])
     if isinstance(ea_list, dict): ea_list = [ea_list]
-    ext      = {ea["name"]: ea.get("value") for ea in ea_list if isinstance(ea, dict)}
+    ext      = {ea["name"]: ea.get("value") for ea in ea_list if isinstance(ea, dict) and "name" in ea}
     fv_users = hw.get("filevault2_users", [])
     filevault_enabled = hw.get("filevault2_enabled") is True or (isinstance(fv_users, list) and len(fv_users) > 0)
     apple_silicon = (
@@ -436,11 +464,29 @@ def get_device(serial):
 @app.route("/api/user/<username>")
 @require_auth
 def get_user_devices(username):
+    username = username.strip().lower()
     log.info("User lookup: %s by %s", username, request.user.get("sub","?"))
-    resp = requests.get(f"{JAMF_URL}/JSSResource/computers", headers=jamf_headers(), timeout=15)
-    resp.raise_for_status()
-    matches = [c for c in resp.json().get("computers", []) if (c.get("username") or "").lower() == username.lower()]
-    return jsonify({"username": username, "devices": matches})
+    import urllib.parse
+    wildcard = "*" + "*".join(p for p in username.replace("."," ").replace("_"," ").replace("-"," ").split() if p) + "*"
+    devices = []
+    try:
+        resp = requests.get(f"{JAMF_URL}/JSSResource/computers/match/{urllib.parse.quote(wildcard)}", headers=jamf_headers(), timeout=15)
+        if resp.ok:
+            for d in resp.json().get("computers", []):
+                serial = d.get("serial_number") or d.get("serial") or ""
+                if serial:
+                    devices.append({"id":d.get("id"),"name":d.get("name",""),"serial":serial,
+                        "serial_number":serial,"model":d.get("model",""),"site":d.get("site_name",""),
+                        "username":d.get("username",""),"realname":d.get("real_name",""),
+                        "last_contact_time":d.get("last_contact_time",""),"managed":True})
+    except Exception as e:
+        log.warning("Wildcard user lookup failed: %s", e)
+    seen, unique = set(), []
+    for d in devices:
+        s = d.get("serial","")
+        if s and s not in seen:
+            seen.add(s); unique.append(d)
+    return jsonify({"username": username, "devices": unique, "count": len(unique)})
 
 # ── MDM Actions (with audit logging) ─────────────────────────────
 @app.route("/api/device/<serial>/flush-mdm", methods=["POST"])
@@ -456,7 +502,7 @@ def flush_mdm(serial):
     except requests.exceptions.HTTPError as e:
         if e.response.status_code in (401, 403):
             return jsonify({"success": False, "note": "BlankPush not authorized in your Jamf API role."}), 200
-        raise
+        return jsonify({"error": f"Jamf returned HTTP {e.response.status_code} for BlankPush command"}), 502
 
 @app.route("/api/device/<serial>/restart", methods=["POST"])
 @require_auth
@@ -481,7 +527,7 @@ def lock_device(serial):
     except requests.exceptions.HTTPError as e:
         if e.response.status_code in (401, 403):
             return jsonify({"success": False, "note": "Lock not authorized in your Jamf API role."}), 200
-        raise
+        return jsonify({"error": f"Jamf returned HTTP {e.response.status_code} for DeviceLock command"}), 502
 
 # ── Policies ──────────────────────────────────────────────────────
 @app.route("/api/device/<serial>/policies")
@@ -490,12 +536,21 @@ def get_device_policies(serial):
     serial = serial.upper().strip()
     cid    = get_computer_id(serial)
     if not cid: return jsonify({"error": f"Device not found: {serial}"}), 404
-    resp = requests.get(f"{JAMF_URL}/JSSResource/computerhistory/id/{cid}/subset/PolicyLogs", headers=jamf_headers(), timeout=10)
-    resp.raise_for_status()
-    ch   = resp.json().get("computer_history", {})
-    pl   = ch.get("policy_logs", [])
-    if isinstance(pl, dict): pl = pl.get("policy_log", [])
-    if isinstance(pl, dict): pl = [pl]
+    try:
+        resp = requests.get(f"{JAMF_URL}/JSSResource/computerhistory/id/{cid}/subset/PolicyLogs", headers=jamf_headers(), timeout=15)
+        resp.raise_for_status()
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Jamf API timed out fetching policy logs"}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Could not fetch policy logs: {e}"}), 502
+    try:
+        raw = resp.json()
+        ch  = raw.get("computer_history", {}) if isinstance(raw, dict) else {}
+        pl  = ch.get("policy_logs", [])
+        if isinstance(pl, dict): pl = pl.get("policy_log", [])
+        if isinstance(pl, dict): pl = [pl]
+    except (ValueError, AttributeError, TypeError):
+        pl = []
     logs = sorted(pl if isinstance(pl, list) else [], key=lambda x: x.get("date_completed_epoch", 0), reverse=True)
     offset = int(request.args.get("offset", 0))
     limit  = int(request.args.get("limit", 15))
@@ -504,14 +559,14 @@ def get_device_policies(serial):
 import threading as _threading
 _fleet_cache = {"data": None, "fetched_at": 0}
 _fleet_lock  = _threading.Lock()
-FLEET_TTL    = 600
+FLEET_TTL    = 1800  # 30 minutes
 
 def fetch_fleet(force=False) -> list:
     now = time.time()
     if not force and _fleet_cache["data"] and now < _fleet_cache["fetched_at"] + FLEET_TTL:
         return _fleet_cache["data"]
     if not _fleet_lock.acquire(blocking=False):
-        log.info("Fleet fetch already in progress, skipping duplicate")
+        log.info("Fleet fetch already in progress, returning cached data")
         return _fleet_cache["data"] or []
     try:
         log.info("Fetching fleet inventory...")
@@ -532,6 +587,19 @@ def fetch_fleet(force=False) -> list:
         return all_devices
     finally:
         _fleet_lock.release()
+
+def _fleet_background_refresh():
+    """Refresh fleet cache every 25 minutes in the background."""
+    while True:
+        _threading.Event().wait(1500)  # 25 minutes
+        try:
+            fetch_fleet(force=True)
+            log.info("Fleet cache auto-refreshed")
+        except Exception as e:
+            log.warning("Fleet auto-refresh failed: %s", e)
+
+# Start background refresh thread
+_threading.Thread(target=_fleet_background_refresh, daemon=True).start()
 
 def ea_value(device: dict, name: str) -> str:
     for ea in device.get("extensionAttributes", []):
@@ -564,6 +632,7 @@ def fleet_device_summary(d: dict) -> dict:
         "last_contact": last_contact, "hours_since": hours_since, "filevault": filevault,
         "super_compliant": ea_value(d, "SUPER Compliant"),
         "jc_version":      ea_value(d, "Jamf Connect Version"),
+        "jc_users":        ea_value(d, "Jamf Connect Users"),
     }
 
 # ── Jamf Protect Integration ─────────────────────────────────────
@@ -750,14 +819,31 @@ def analyze_device(serial):
     """
     serial = serial.upper().strip()
     log.info("Analyze: %s by %s", serial, request.user.get("sub","?"))
+    try:
+        return _do_analyze(serial)
+    except Exception as e:
+        log.exception("analyze_device unhandled error for %s", serial)
+        return jsonify({"error": f"Analysis failed — {type(e).__name__}: {e}"}), 500
 
+def _do_analyze(serial):
     # ── Step 1: Gather all data ───────────────────────────────────
     # Classic API — base computer record
-    resp = requests.get(f"{JAMF_URL}/JSSResource/computers/serialnumber/{serial}", headers=jamf_headers(), timeout=10)
+    try:
+        resp = requests.get(f"{JAMF_URL}/JSSResource/computers/serialnumber/{serial}", headers=jamf_headers(), timeout=15)
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Jamf API timed out — try again in a moment"}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Jamf connection error: {e}"}), 502
     if resp.status_code == 404:
         return jsonify({"error": f"Device not found: {serial}"}), 404
-    resp.raise_for_status()
-    computer   = resp.json()["computer"]
+    try:
+        resp.raise_for_status()
+    except requests.exceptions.HTTPError:
+        return jsonify({"error": f"Jamf returned HTTP {resp.status_code} for {serial}"}), 502
+    try:
+        computer = resp.json()["computer"]
+    except (ValueError, KeyError) as e:
+        return jsonify({"error": f"Unexpected Jamf response format: {e}"}), 502
     gen        = computer.get("general", {})
     hw         = computer.get("hardware", {})
     loc        = computer.get("location", {})
@@ -768,16 +854,32 @@ def analyze_device(serial):
         f"{JAMF_URL}/api/v1/computers-inventory/{cid}?section=CONFIGURATION_PROFILES&section=GROUP_MEMBERSHIPS&section=SECURITY&section=EXTENSION_ATTRIBUTES&section=GENERAL",
         headers=jamf_headers(), timeout=15
     )
-    v1 = v1_resp.json() if v1_resp.ok else {}
+    try:
+        _v1 = v1_resp.json() if v1_resp.ok else {}
+    except ValueError:
+        _v1 = {}
+    v1 = _v1 if isinstance(_v1, dict) else {}
     profiles  = v1.get("configurationProfiles", [])
     groups    = v1.get("groupMemberships", [])
     security  = v1.get("security", {})
     eas_raw   = v1.get("extensionAttributes", [])
-    eas       = {ea["name"]: (ea.get("values") or [""])[0] for ea in eas_raw}
+    eas       = {ea["name"]: (ea.get("values") or [""])[0] for ea in eas_raw if isinstance(ea, dict) and "name" in ea}
+    # v1 API doesn't return all EAs — merge in classic API EAs for ones we need
+    classic_ea_raw  = computer.get("extension_attributes") or {}
+    classic_ea_list = classic_ea_raw if isinstance(classic_ea_raw, list) else (classic_ea_raw.get("extension_attribute", []) if isinstance(classic_ea_raw, dict) else [])
+    if isinstance(classic_ea_list, dict): classic_ea_list = [classic_ea_list]
+    for ea in classic_ea_list:
+        name = ea.get("name","")
+        if name and name not in eas:
+            eas[name] = ea.get("value","") or ""
 
     # Policy history
     ph_resp = requests.get(f"{JAMF_URL}/JSSResource/computerhistory/id/{cid}/subset/PolicyLogs", headers=jamf_headers(), timeout=10)
-    ch = ph_resp.json().get("computer_history", {}) if ph_resp.ok else {}
+    try:
+        _ph = ph_resp.json() if ph_resp.ok else {}
+        ch  = _ph.get("computer_history", {}) if isinstance(_ph, dict) else {}
+    except (ValueError, AttributeError):
+        ch = {}
     pl = ch.get("policy_logs", [])
     if isinstance(pl, dict): pl = pl.get("policy_log", [])
     if isinstance(pl, dict): pl = [pl]
@@ -787,7 +889,11 @@ def analyze_device(serial):
     pending_resp = requests.get(f"{JAMF_URL}/JSSResource/computercommands/status/Pending", headers=jamf_headers(), timeout=10)
     pending_all  = []
     if pending_resp.ok:
-        pc = pending_resp.json().get("computer_commands", {}).get("computer_command", [])
+        try:
+            _pr = pending_resp.json()
+            pc  = _pr.get("computer_commands", {}).get("computer_command", []) if isinstance(_pr, dict) else []
+        except (ValueError, AttributeError):
+            pc = []
         if isinstance(pc, dict): pc = [pc]
         pending_all = [c for c in (pc if isinstance(pc, list) else []) if str(c.get("management_id","")) == str(cid) or str(c.get("computer_id","")) == str(cid)]
 
@@ -822,206 +928,538 @@ def analyze_device(serial):
 
     # ── Step 2: Rule-based checks ─────────────────────────────────
     issues = []
+    def add(severity, category, title, detail, action="", escalate=False):
+        issues.append({"severity":severity,"category":category,"title":title,
+                        "detail":detail,"action":action,"escalate":escalate})
 
-    def add(severity, category, title, detail, action=""):
-        issues.append({"severity": severity, "category": category, "title": title, "detail": detail, "action": action})
-
-    # --- Profile conflict checks ---
+    now_ms   = time.time() * 1000
+    day_ms   = 86400000
     profile_names = [p.get("displayName","") for p in profiles]
+    smart_groups  = [g["groupName"] for g in groups if g.get("smartGroup")]
+    fv_users      = hw.get("filevault2_users", [])
+    fv_on         = hw.get("filevault2_enabled") is True or (isinstance(fv_users,list) and len(fv_users)>0)
+    apple_silicon = (hw.get("apple_silicon") is True
+                     or hw.get("processor_architecture","").lower()=="arm64"
+                     or hw.get("processor_type","").lower().startswith("apple"))
+    bt_status     = security.get("bootstrapTokenEscrowedStatus","")
+    bt_escrowed   = bt_status == "ESCROWED"
+    sip           = security.get("sipStatus","")
+    last_ci       = gen.get("last_contact_time","")
+    hours_stale   = None
+    if last_ci:
+        try:
+            dt = datetime.fromisoformat(last_ci.replace("Z","+00:00"))
+            hours_stale = round((datetime.now(timezone.utc)-dt).total_seconds()/3600,1)
+        except Exception: pass
 
-    # Duplicate SUPER profiles
-    super_profiles = [n for n in profile_names if "super" in n.lower()]
-    if len(super_profiles) > 1:
-        add("HIGH","CONFLICT", f"Duplicate SUPER config profiles ({len(super_profiles)})",
-            f"Multiple SUPER profiles applied: {', '.join(super_profiles)}",
-            "Review profile scoping — only one SUPER config should apply to this device.")
+    super_compliant = eas.get("SUPER Compliant","")
+    super_status    = eas.get("SUPER status","")
+    super_last_run  = eas.get("Last Super Run","")
+    super_deferrals = eas.get("number of times the user has deferred the Deadline Focus, S.U.P.E.R.M.A.N","0") or "0"
+    jc_version      = eas.get("Jamf Connect Version","")
+    jc_users        = eas.get("Jamf Connect Users","")
+    guest_ea        = eas.get("OS - Guest Account Disabled","")
+    protect_ea      = eas.get("Jamf Protect - Smart Groups","")
+    department      = loc.get("department","") or ""
+    username        = loc.get("username","") or gen.get("username","") or ""
+    device_name     = gen.get("name","") or serial
+    super_days_since = None
+    if super_last_run:
+        try:
+            dt2 = datetime.strptime(super_last_run, "%a %b %d %H:%M:%S %Z %Y")
+            super_days_since = round((datetime.now()-dt2).total_seconds()/86400,1)
+        except Exception:
+            try:
+                from dateutil import parser as dparser
+                dt2 = dparser.parse(super_last_run)
+                super_days_since = round((datetime.now(timezone.utc)-dt2.replace(tzinfo=timezone.utc)).total_seconds()/86400,1)
+            except Exception: pass
 
-    # Duplicate Jamf Connect profiles
-    jc_profiles = [n for n in profile_names if "jamf connect" in n.lower() or "connect" in n.lower() and "jamf" in n.lower()]
-    if len(jc_profiles) > 1:
-        add("HIGH","CONFLICT", f"Duplicate Jamf Connect profiles ({len(jc_profiles)})",
-            f"Multiple JC profiles: {', '.join(jc_profiles)}",
-            "Remove duplicate Jamf Connect profiles — only one should be applied.")
+    # ── PROFILE CONFLICTS ──────────────────────────────────────────
+    for label, matches in [
+        ("SUPER",        [n for n in profile_names if "super" in n.lower()]),
+        ("Jamf Connect", [n for n in profile_names if "jamf connect" in n.lower()]),
+        ("FileVault",    [n for n in profile_names if any(x in n.lower() for x in ["filevault","fde","disk encrypt"])]),
+        ("Password",     [n for n in profile_names if any(x in n.lower() for x in ["password","passcode"])]),
+    ]:
+        if len(matches) > 1:
+            sev = "HIGH" if label != "Password" else "MEDIUM"
+            add(sev,"CONFLICT",f"Duplicate {label} profiles ({len(matches)})",
+                f"Applied: {', '.join(matches)}",
+                f"Remove duplicate {label} profiles — review scope and smart group membership.")
 
-    # Duplicate FileVault profiles
-    fv_profiles = [n for n in profile_names if "filevault" in n.lower() or "fde" in n.lower() or "disk encrypt" in n.lower()]
-    if len(fv_profiles) > 1:
-        add("HIGH","CONFLICT", f"Duplicate FileVault profiles ({len(fv_profiles)})",
-            f"Multiple FV profiles: {', '.join(fv_profiles)}",
-            "Only one FileVault enforcement profile should be applied — review scope.")
-
-    # Duplicate password/passcode profiles
-    pw_profiles = [n for n in profile_names if "password" in n.lower() or "passcode" in n.lower()]
-    if len(pw_profiles) > 1:
-        add("MEDIUM","CONFLICT", f"Duplicate password policy profiles ({len(pw_profiles)})",
-            f"Multiple password profiles: {', '.join(pw_profiles)}",
-            "Conflicting password policies can cause unexpected lockouts — consolidate.")
-
-    # --- Policy checks ---
-    now_ms = __import__("time").time() * 1000
-    days_30_ms = 30 * 24 * 3600 * 1000
-
-    # Stale policies (scoped but not run in 30+ days)
-    stale_policies = []
+    # ── POLICY HISTORY ANALYSIS ────────────────────────────────────
+    # Repeated failures
+    fail_counts = {}
+    fail_epochs = {}
     for p in policy_logs:
-        epoch = p.get("date_completed_epoch", 0) or 0
-        if epoch and (now_ms - epoch) > days_30_ms:
-            stale_policies.append(p.get("policy_name","Unknown"))
-    if len(stale_policies) >= 3:
-        add("LOW","POLICY", f"{len(stale_policies)} policies not run in 30+ days",
-            f"Stale policies: {', '.join(stale_policies[:5])}{'...' if len(stale_policies)>5 else ''}",
-            "Review why these policies haven't run — check scope, triggers, and device check-in.")
+        s = (p.get("status") or "").lower()
+        if "fail" in s:
+            n = p.get("policy_name","Unknown")
+            fail_counts[n] = fail_counts.get(n,0)+1
+            fail_epochs.setdefault(n,[]).append(p.get("date_completed_epoch",0) or 0)
+    for name,count in sorted(fail_counts.items(), key=lambda x:-x[1])[:3]:
+        if count >= 2:
+            add("HIGH","POLICY",f"Repeated policy failure: {name}",
+                f"Failed {count} time{'s' if count>1 else ''} in history.",
+                "Check script errors, package integrity, and Jamf policy logs. Escalate to Bob if 5+ failures.",
+                escalate=(count>=5))
 
-    # Repeated policy failures
-    failures = {}
+    # Policy cluster — 3+ different policies failing in same 7-day window
+    if len(fail_counts) >= 3:
+        # Find if most failures cluster in a time window
+        all_fail_epochs = [e for epochs in fail_epochs.values() for e in epochs if e]
+        if all_fail_epochs:
+            all_fail_epochs.sort()
+            for i in range(len(all_fail_epochs)-2):
+                window = all_fail_epochs[i+2] - all_fail_epochs[i]
+                if window < 7*day_ms:
+                    add("HIGH","PATTERN","Multiple policies failing in same window",
+                        f"{len(fail_counts)} policies failed within a 7-day window — suggests infrastructure or network issue, not individual policy problems.",
+                        "Check Jamf distribution point, network connectivity, and package download logs.")
+                    break
+
+    # Policy suddenly stopped — ran regularly then went quiet
+    policy_history = {}
     for p in policy_logs:
-        status = (p.get("status") or "").lower()
-        if "fail" in status:
-            name = p.get("policy_name","Unknown")
-            failures[name] = failures.get(name, 0) + 1
-    repeat_failures = {k:v for k,v in failures.items() if v >= 2}
-    for name, count in list(repeat_failures.items())[:3]:
-        add("HIGH","POLICY", f"Policy failing repeatedly: {name}",
-            f"Failed {count} times in policy history.",
-            "Check policy scope, package integrity, and script errors. Escalate to Bob if persists.")
+        n = p.get("policy_name","Unknown")
+        e = p.get("date_completed_epoch",0) or 0
+        if e: policy_history.setdefault(n,[]).append(e)
+    for name, epochs in policy_history.items():
+        if len(epochs) >= 4:
+            epochs_s = sorted(epochs)
+            # Average interval between first 3 runs
+            avg_interval = (epochs_s[-2]-epochs_s[0]) / max(len(epochs_s)-2,1)
+            days_since_last = (now_ms - epochs_s[-1]) / day_ms
+            if avg_interval > 0 and days_since_last > (avg_interval/day_ms)*3:
+                add("MEDIUM","PATTERN",f"Policy stopped running: {name}",
+                    f"Ran regularly every ~{round(avg_interval/day_ms)}d, last ran {round(days_since_last)}d ago.",
+                    "Check if device was removed from scope, or if a scope change occurred around the last run date.")
+                break  # one is enough
 
-    # Pending MDM commands
-    if len(pending_all) > 0:
-        add("MEDIUM","MDM", f"{len(pending_all)} MDM command(s) stuck in queue",
-            f"Commands pending: {', '.join(set(c.get('name','?') for c in pending_all))}",
-            "Flush MDM queue (BlankPush) and ensure device is online and checking in.")
+    # Managed but no policies in 30 days
+    gen_managed = gen.get("remote_management",{}).get("managed",False)
+    recent_runs = [p for p in policy_logs if (p.get("date_completed_epoch",0) or 0) > now_ms - 30*day_ms]
+    if gen_managed and not recent_runs and len(policy_logs) > 0:
+        add("HIGH","PATTERN","Managed but no policies ran in 30+ days",
+            "Device is marked managed but has had no policy activity in over a month.",
+            "Run Blank Push Check-in and check device scoping. May indicate broken MDM enrollment.")
 
-    # --- Security checks ---
-    fv_users = hw.get("filevault2_users", [])
-    fv_on = hw.get("filevault2_enabled") is True or (isinstance(fv_users, list) and len(fv_users) > 0)
+    # Pending commands + stale
+    if pending_all and hours_stale and hours_stale > 48:
+        add("HIGH","MDM",f"{len(pending_all)} MDM command(s) queued — device unreachable",
+            f"Device hasn't checked in for {round(hours_stale/24,1)}d. Queued: {', '.join(set(c.get('name','?') for c in pending_all))}",
+            "Commands will not execute until device comes back online. Locate device physically if possible.")
+    elif pending_all:
+        add("MEDIUM","MDM",f"{len(pending_all)} MDM command(s) pending",
+            f"Queued: {', '.join(set(c.get('name','?') for c in pending_all))}",
+            "Run Blank Push Check-in to flush the queue.")
+
+    # ── SECURITY CHECKS ────────────────────────────────────────────
     if not fv_on:
-        add("HIGH","SECURITY", "FileVault is NOT enabled",
-            "This device has no FileVault users — disk is unencrypted.",
-            "Push FileVault enforcement profile and ensure a user with Secure Token logs in.")
+        add("HIGH","SECURITY","FileVault NOT enabled",
+            "Disk is unencrypted. Sensitive data is at risk if device is lost or stolen.",
+            "Push FileVault enforcement profile and ensure user with Secure Token logs in. Escalate to Bob.",
+            escalate=True)
 
-    # Guest account
-    guest_ea = eas.get("OS - Guest Account Disabled","")
-    if guest_ea and "fail" in guest_ea.lower():
-        add("MEDIUM","SECURITY", "Guest account is enabled",
-            "Guest account policy check failed — guest login may be active.",
-            "Push guest account disable profile or run the guest account remediation policy.")
-
-    # Jamf Protect
-    protect_ea = eas.get("Jamf Protect - Smart Groups","")
-    if not protect_ea or protect_ea in ("", "Does not exist", "Not Installed"):
-        add("MEDIUM","SECURITY", "Jamf Protect not detected",
-            "No Jamf Protect smart group membership found for this device.",
-            "Check if Protect is deployed — re-push Protect installer via Jamf.")
-
-    # SIP status
-    sip = security.get("sipStatus","")
     if sip and sip != "ENABLED":
-        add("HIGH","SECURITY", f"SIP is {sip}",
-            "System Integrity Protection is not fully enabled on this device.",
-            "SIP should always be enabled on managed Macs. Investigate how it was disabled.")
+        add("HIGH","SECURITY",f"SIP is {sip}",
+            "System Integrity Protection disabled — malware can modify protected system files.",
+            "Investigate how SIP was disabled. Re-enable via Recovery if intentional.", escalate=True)
 
-    # Gatekeeper
     gk = security.get("gatekeeperStatus","")
-    if gk and gk not in ("APP_STORE_AND_IDENTIFIED_DEVELOPERS", "APP_STORE"):
-        add("MEDIUM","SECURITY", f"Gatekeeper set to: {gk}",
-            "Gatekeeper is not enforcing app signing — any software can run.",
-            "Push Gatekeeper enforcement profile to restore security posture.")
+    if gk and gk not in ("APP_STORE_AND_IDENTIFIED_DEVELOPERS","APP_STORE"):
+        add("MEDIUM","SECURITY",f"Gatekeeper: {gk}",
+            "Unsigned apps can run without restriction.",
+            "Push Gatekeeper enforcement profile.")
 
-    # Firewall
-    fw = security.get("firewallEnabled")
-    if fw is False:
-        add("MEDIUM","SECURITY", "Firewall is disabled",
-            "macOS firewall is turned off on this device.",
+    if security.get("firewallEnabled") is False:
+        add("MEDIUM","SECURITY","macOS Firewall disabled",
+            "Incoming connections are not blocked.",
             "Push firewall enforcement profile.")
 
-    # Secure Boot
     sb = security.get("secureBootLevel","")
-    if sb and sb not in ("FULL_SECURITY", "MEDIUM_SECURITY"):
-        add("LOW","SECURITY", f"Secure Boot level: {sb}",
-            "Device is not using Full or Medium Secure Boot.",
-            "Review if this is intentional — Full Security is recommended for managed Macs.")
+    if sb and sb not in ("FULL_SECURITY","MEDIUM_SECURITY"):
+        add("LOW","SECURITY",f"Secure Boot: {sb}",
+            "Not using Full or Medium Secure Boot.",
+            "Review if intentional — Full Security recommended for managed Macs.")
 
-    # Bootstrap Token
-    bt = security.get("bootstrapTokenEscrowedStatus","")
-    if bt and bt not in ("ESCROWED",):
-        add("MEDIUM","SECURITY", "Bootstrap Token not escrowed",
-            f"Bootstrap Token status: {bt}. Required for MDM-driven FileVault and software updates.",
-            "Have user log in, then run sudo profiles install -type bootstraptoken.")
+    if not bt_escrowed and bt_status:
+        add("MEDIUM","SECURITY","Bootstrap Token not escrowed",
+            f"Status: {bt_status}. Required for MDM software updates and FileVault recovery.",
+            "Have user log in, then: sudo profiles install -type bootstraptoken")
 
-    # SUPER compliance
-    super_compliant = eas.get("SUPER Compliant","")
+    if guest_ea and "fail" in guest_ea.lower():
+        add("MEDIUM","SECURITY","Guest account enabled",
+            "Guest login is active — unauthenticated access to this Mac.",
+            "Run guest account remediation policy or push disable profile.")
+
+    if not protect_ea or protect_ea in ("","Does not exist","Not Installed"):
+        add("MEDIUM","SECURITY","Jamf Protect not installed",
+            "No Protect smart group membership. Device has no endpoint threat detection.",
+            "Push Jamf Protect installer via Jamf policy.")
+
+    # ── CROSS-CORRELATIONS — things only dangerous in combination ─
+    # 1. Apple Silicon + Bootstrap Token not escrowed
+    #    SUPER silent MDM updates require BT on Apple Silicon
+    if apple_silicon and not bt_escrowed and bt_status:
+        add("HIGH","CORRELATION","Apple Silicon + Bootstrap Token not escrowed",
+            "On Apple Silicon, SUPER cannot perform silent MDM-triggered updates without an escrowed Bootstrap Token. "
+            "Software updates will require user interaction or will fail silently.",
+            "Priority: get BT escrowed before next SUPER deadline. Have user log in and run: sudo profiles install -type bootstraptoken",
+            escalate=True)
+
+    # 2. FileVault ON + Bootstrap Token not escrowed
+    #    MDM can't rotate the FileVault recovery key or perform unlock
+    if fv_on and not bt_escrowed and bt_status:
+        add("HIGH","CORRELATION","FileVault on but Bootstrap Token not escrowed",
+            "FileVault is active but MDM cannot rotate the recovery key or unlock the disk remotely. "
+            "If the user forgets their password, recovery will require physical access.",
+            "Escrow Bootstrap Token urgently: have user log in → sudo profiles install -type bootstraptoken",
+            escalate=True)
+
+    # 3. SUPER non-compliant + last run > 14 days
+    #    Not just deferred — SUPER may not be running at all
     if super_compliant and "non" in super_compliant.lower():
-        add("MEDIUM","POLICY", "SUPER reports non-compliant",
-            f"SUPER Compliant EA: {super_compliant}",
-            "Check SUPER status EA, last run date, and deadline settings.")
+        if super_days_since and super_days_since > 14:
+            add("HIGH","CORRELATION","SUPER non-compliant and not running",
+                f"SUPER is non-compliant AND hasn't run in {round(super_days_since)}d. "
+                "This suggests SUPER is broken or stopped, not just that the user is deferring.",
+                "Check: sudo launchctl list | grep super — if missing, re-push SUPER policy. Also check Bootstrap Token.")
+        else:
+            add("MEDIUM","POLICY","SUPER non-compliant",
+                f"Status: {super_compliant}. User may be actively deferring.",
+                "Check SUPER deferrals and deadline settings.")
 
-    # Smart group anomalies
-    smart_groups = [g["groupName"] for g in groups if g.get("smartGroup")]
+    # 4. High deferrals
+    try:
+        deferral_count = int(super_deferrals)
+        if deferral_count >= 5:
+            add("HIGH","POLICY",f"SUPER deferrals critical: {deferral_count}x",
+                f"User has deferred updates {deferral_count} times — hard deadline likely imminent.",
+                "Contact user immediately. Check hard deadline EA. Escalate to Bob if > 10 deferrals.",
+                escalate=(deferral_count>10))
+        elif deferral_count >= 3:
+            add("MEDIUM","POLICY",f"SUPER deferrals: {deferral_count}x",
+                "User is repeatedly deferring updates.",
+                "Contact user about upcoming deadline.")
+    except (ValueError, TypeError): pass
+
+    # 5. Protect offline + open alerts
+    if protect_data:
+        open_alerts = protect_data.get("open_alerts",[])
+        hours_offline = protect_data.get("hours_offline") or 0
+        if open_alerts and hours_offline > 2:
+            add("HIGH","CORRELATION","Protect offline with unresolved alerts",
+                f"Protect agent offline {round(hours_offline)}h AND {len(open_alerts)} open alert(s). "
+                "Active threats cannot be monitored or auto-remediated.",
+                "Locate device. Check Protect agent: sudo /usr/local/bin/jamf-protect check-in. Escalate to Bob.",
+                escalate=True)
+        elif open_alerts:
+            for alert in open_alerts[:3]:
+                sev = alert.get("severity","?")
+                aria_sev = "HIGH" if sev in ("High","Critical") else "MEDIUM"
+                add(aria_sev,"PROTECT",f"Open Protect alert: {alert.get('eventType','Unknown')}",
+                    f"Severity: {sev} · Created: {alert.get('created','')[:10]}",
+                    "Review in Jamf Protect console. Escalate High/Critical to Bob.", escalate=(sev in ("High","Critical")))
+        if hours_offline > 24:
+            days = round(hours_offline/24,1)
+            add("MEDIUM","PROTECT",f"Protect offline {days}d",
+                f"Last connected: {protect_data.get('last_connection','unknown')[:10] if protect_data.get('last_connection') else 'unknown'}",
+                "Check agent: sudo /usr/local/bin/jamf-protect check-in")
+        # Protect insights > 50% failing
+        ins_fail = protect_data.get("insights_fail",0) or 0
+        ins_pass = protect_data.get("insights_pass",0) or 0
+        ins_total = ins_fail + ins_pass
+        if ins_total > 0 and ins_fail/ins_total > 0.5:
+            add("HIGH","PROTECT",f"Protect insights: {ins_fail}/{ins_total} failing ({round(ins_fail/ins_total*100)}%)",
+                "More than half of security baseline checks are failing — overall security posture is poor.",
+                "Review failing insights in Jamf Protect console for this device.")
+        elif ins_fail > 5:
+            add("LOW","PROTECT",f"Protect insights: {ins_fail} failing",
+                f"Pass: {ins_pass} · Fail: {ins_fail}",
+                "Review failing insights in Jamf Protect console.")
+    elif PROTECT_URL:
+        add("LOW","PROTECT","Device not found in Jamf Protect",
+            "No Protect record for this serial. Agent may not be installed.",
+            "Push Jamf Protect agent via Jamf policy if this device should be protected.")
+
+    # 6. SIP disabled + Protect issues
+    if sip and sip != "ENABLED" and protect_data and (protect_data.get("insights_fail",0) or 0) > 5:
+        add("HIGH","CORRELATION","SIP disabled + Protect insights failing",
+            "SIP is disabled AND Protect is reporting multiple security failures. "
+            "This combination significantly elevates risk of undetected compromise.",
+            "Treat as potential security incident. Re-enable SIP and review Protect alerts. Escalate to Bob.",
+            escalate=True)
+
+    # 7. No user assigned + stale
+    if not username and hours_stale and hours_stale > 168:
+        add("MEDIUM","ASSET","Unassigned device — possibly orphaned",
+            f"No user in Jamf record and not checked in for {round(hours_stale/24,1)}d. "
+            "May be decommissioned, lost, or forgotten.",
+            "Verify physical location. If no longer in use, begin retirement process.")
+
+    # 8. Jamf Connect installed but 0 users
+    jc_installed = jc_version and jc_version not in ("","Does not exist","Not Installed")
+    try:
+        jc_user_count = int(jc_users or "0")
+    except (ValueError, TypeError):
+        jc_user_count = 0
+    if jc_installed and jc_user_count == 0:
+        add("MEDIUM","CORRELATION","Jamf Connect installed but no users authenticated",
+            f"JC {jc_version} is installed but 0 users have logged in through it. "
+            "Users may be logging in with local accounts, bypassing IdP authentication.",
+            "Verify login window is showing JC. Check for local account usage. May indicate a JC login loop.")
+
+    # 9. Department missing — enrollment incomplete
+    if not department or department.lower() in ("","missing dept.","none"):
+        add("LOW","ASSET","Department not assigned",
+            "Missing department suggests enrollment was incomplete or record was never updated.",
+            "Update department in Jamf → Inventory → Location. Useful for scoping and reporting.")
+
+    # 10. Device name suggests shared use — extra guest/security scrutiny
+    name_lower = device_name.lower()
+    is_shared = any(x in name_lower for x in ["cart","lab","shared","loaner","spare","kiosk","library"])
+    if is_shared and guest_ea and "fail" in guest_ea.lower():
+        add("HIGH","CORRELATION","Shared/cart device with guest account enabled",
+            f"Device name '{device_name}' suggests shared use, AND guest account is active. "
+            "Any student or visitor can access this Mac without credentials.",
+            "Priority: push guest account disable profile to this device immediately.", escalate=True)
+
+    # 11. Exclusion groups
     exclusion_groups = [g for g in smart_groups if "exclude" in g.lower()]
     if exclusion_groups:
-        add("LOW","SCOPE", f"Device in {len(exclusion_groups)} exclusion group(s)",
-            f"Exclusion groups: {', '.join(exclusion_groups[:3])}",
-            "Verify exclusions are intentional — may explain why policies or profiles aren't applying.")
+        add("LOW","SCOPE",f"In {len(exclusion_groups)} exclusion group(s)",
+            f"Groups: {', '.join(exclusion_groups[:4])}",
+            "Verify exclusions are intentional — may explain missing policies or profiles.")
 
-    # --- Jamf Protect checks ---
-    if protect_data:
-        # Open threat alerts
-        if protect_data["open_alerts"]:
-            for alert in protect_data["open_alerts"][:3]:
-                sev = alert.get("severity","?")
-                etype = alert.get("eventType","Unknown")
-                aria_sev = "HIGH" if sev in ("High","Critical") else "MEDIUM"
-                add(aria_sev, "PROTECT", f"Open threat alert: {etype}",
-                    f"Severity: {sev} · Status: {alert.get('status','?')} · Created: {alert.get('created','?')[:10]}",
-                    "Review and resolve this alert in Jamf Protect. Escalate to Bob if High/Critical.")
-        # Protect offline >24h
-        if protect_data.get("hours_offline") and protect_data["hours_offline"] > 24:
-            days = round(protect_data["hours_offline"] / 24, 1)
-            add("MEDIUM", "PROTECT", f"Protect agent offline {days}d",
-                f"Last connection: {protect_data.get('last_connection','?')[:10] if protect_data.get('last_connection') else 'unknown'}",
-                "Verify Protect agent is running: sudo /usr/local/bin/jamf-protect check-in")
-        # High insights failures
-        fail = protect_data.get("insights_fail", 0)
-        if fail and fail > 5:
-            add("LOW", "PROTECT", f"{fail} Protect insight checks failing",
-                f"Pass: {protect_data.get('insights_pass',0)} · Fail: {fail}",
-                "Review failing insights in Jamf Protect console for this device.")
-    elif PROTECT_URL:
-        add("LOW", "PROTECT", "Device not found in Jamf Protect",
-            "This device does not appear in Protect. It may not have the agent installed.",
-            "Push Protect agent via Jamf policy if this device should be protected.")
+    # ── DEEP INTELLIGENCE — cross-data correlations ───────────────
+
+    # 1. macOS too old for the chip
+    os_ver = hw.get("os_version","") or ""
+    try:
+        major_os = int(os_ver.split(".")[0]) if os_ver else 0
+    except (ValueError, IndexError):
+        major_os = 0
+    if apple_silicon and major_os and major_os < 14:
+        add("HIGH","INTELLIGENCE","macOS too old for Apple Silicon",
+            f"This Apple Silicon Mac is running macOS {os_ver}. "
+            "Apple Silicon Macs should be on Sonoma (14) or Sequoia (15). "
+            "Ventura and earlier miss critical AS-specific security patches and SUPER capabilities.",
+            "Prioritize this device for OS upgrade via SUPER.")
+    elif not apple_silicon and major_os and major_os < 13:
+        add("MEDIUM","INTELLIGENCE",f"macOS {os_ver} is outdated for Intel",
+            "Intel Mac running Monterey or earlier — 2+ major versions behind.",
+            "Push SUPER update. Check if hardware supports Ventura/Sonoma.")
+
+    # 2. Jamf Connect version outdated (TRSD standard = 3.14.0)
+    jc_installed = jc_version and jc_version not in ("","Does not exist","Not Installed","Does Not Exist")
+    if jc_installed:
+        try:
+            jc_parts = [int(x) for x in jc_version.split(".")[:3]]
+            trsd_min = [3, 14, 0]
+            if jc_parts < trsd_min:
+                add("MEDIUM","INTELLIGENCE",f"Jamf Connect outdated: {jc_version}",
+                    f"TRSD standard is 3.14.0. Running {jc_version} may have known login issues or missing features.",
+                    "Push JC 3.14.0 update policy to this device.")
+        except (ValueError, TypeError):
+            pass
+
+    # 3. SUPER version outdated (SUPER 5.x is current)
+    super_ver = eas.get("SUPER version","") or ""
+    if super_ver and super_ver not in ("","Does not exist","Not Installed"):
+        try:
+            sv_major = int(super_ver.split(".")[0])
+            if sv_major < 5:
+                add("LOW","INTELLIGENCE",f"SUPER version outdated: {super_ver}",
+                    "SUPER 5.x is current. Older versions may have update bugs or lack Apple Silicon support.",
+                    "Push SUPER updater policy to refresh to latest version.")
+        except (ValueError, TypeError):
+            pass
+
+    # 4. FileVault single user + Bootstrap Token not escrowed = disaster risk
+    fv_user_list = hw.get("filevault2_users",[]) or []
+    fv_user_count = len(fv_user_list) if isinstance(fv_user_list, list) else 0
+    if fv_on and fv_user_count == 1 and not bt_escrowed and bt_status:
+        add("HIGH","INTELLIGENCE","FileVault single-user + no Bootstrap Token",
+            f"Only one FileVault user ({fv_user_list[0] if fv_user_list else 'unknown'}) AND Bootstrap Token not escrowed. "
+            "If this user forgets their password, the disk is permanently unrecoverable — "
+            "MDM cannot help without the Bootstrap Token.",
+            "Escrow BT immediately: have user log in → sudo profiles install -type bootstraptoken. "
+            "Then verify in Jamf.", escalate=True)
+
+    # 5. Chrome update pending
+    chrome_update = eas.get("Update Chrome","") or ""
+    if chrome_update and chrome_update.strip() not in ("","No","None","Up To Date","Current"):
+        add("LOW","INTELLIGENCE",f"Chrome update pending: {chrome_update}",
+            "Chrome is not current — known vulnerabilities may be present in older versions.",
+            "Push Chrome Self Service update or scope the Chrome update policy to this device.")
+
+    # 6. Protect connected recently BUT Jamf MDM stale
+    #    Device is on network (Protect talks to cloud) but not talking to Jamf — MDM enrollment broken
+    if (protect_data and protect_data.get("connection") == "Connected"
+            and hours_stale and hours_stale > 168):
+        add("HIGH","INTELLIGENCE","Protect online but MDM stale — enrollment likely broken",
+            f"Jamf Protect is reporting as connected (device is online) but MDM last check-in was "
+            f"{round(hours_stale/24,1)}d ago. The Mac is reachable but NOT talking to Jamf. "
+            "This usually means the MDM profile was removed or enrollment broke.",
+            "SSH/ConnectWise in and check: sudo profiles list | grep MDM. "
+            "Re-enroll if MDM profile is missing. Escalate to Bob.", escalate=True)
+
+    # 7. User mismatch — Jamf record vs last logged-in user
+    last_login_ea = eas.get("Last User to login","") or ""
+    jamf_username = (loc.get("username","") or gen.get("username","") or "").lower().strip()
+    if (last_login_ea and jamf_username
+            and "." in jamf_username  # format: first.last
+            and last_login_ea.lower() not in (jamf_username, jamf_username.split(".")[0])):
+        add("LOW","INTELLIGENCE","Last login user ≠ assigned user in Jamf",
+            f"Jamf record shows '{jamf_username}' but last login was '{last_login_ea}'. "
+            "Device may have been reassigned without updating the Jamf inventory record.",
+            "Update Jamf location record to reflect current user, or confirm reassignment "
+            "is intentional. Affects policy scoping by username.")
+
+    # 8. Shared/lab device + single FileVault user
+    #    If it's a shared device, having only 1 FV user locks everyone else out at boot
+    name_lower = device_name.lower()
+    is_shared = any(x in name_lower for x in ["cart","lab","shared","loaner","spare","kiosk","library","class"])
+    if is_shared and fv_on and fv_user_count == 1:
+        add("MEDIUM","INTELLIGENCE","Shared device with single FileVault user",
+            f"Device name '{device_name}' suggests shared use, but only one FileVault user is enrolled. "
+            "If that user's password is unknown at boot, no one can unlock the disk.",
+            "Add institutional FileVault key (bootstrap token) or add a secondary admin FV user.")
+
+    # 9. High exclusion groups + active policy failures — exclusions may be the cause
+    exclusion_groups = [g for g in smart_groups if "exclude" in g.lower()]
+    if exclusion_groups and fail_counts:
+        # Check if any exclusion group name overlaps with failing policy names
+        failing_keywords = set()
+        for name in fail_counts:
+            failing_keywords.update(name.lower().split())
+        overlap = [g for g in exclusion_groups
+                   if any(kw in g.lower() for kw in failing_keywords if len(kw) > 4)]
+        if overlap:
+            add("MEDIUM","INTELLIGENCE","Exclusion groups may be blocking failing policies",
+                f"Device is in exclusion group(s) '{', '.join(overlap[:2])}' "
+                f"which share keywords with failing policies. "
+                "The exclusions may intentionally or accidentally be preventing those policies from running.",
+                "Review whether exclusion group membership is intentional for the failing policies.")
+
+    # 10. No policies EVER ran — newly enrolled or silently broken
+    if gen_managed and len(policy_logs) == 0:
+        add("HIGH","INTELLIGENCE","No policy history — enrollment may be incomplete",
+            "This managed device has zero policy history. Either it was just enrolled and "
+            "hasn't been scoped to any policies yet, or policy delivery is fundamentally broken.",
+            "Check device smart group membership. Scope a test policy and run Blank Push Check-in. "
+            "If still nothing runs, re-enroll.")
+
+    # 11. Apple Silicon + Bootstrap Token = NOT_SUPPORTED
+    #     Older Intel Macs set this — flag it so admins know MDM updates will require user interaction
+    if bt_status == "NOT_SUPPORTED":
+        add("MEDIUM","INTELLIGENCE","Bootstrap Token not supported on this hardware",
+            "This Mac does not support Bootstrap Token escrow — it's likely older Intel hardware. "
+            "SUPER silent MDM-triggered updates and remote FileVault recovery are not available.",
+            "Ensure a local admin account exists for recovery. SUPER will require user interaction for updates.")
+
+    # 12. Protect version significantly behind
+    if protect_data and protect_data.get("version"):
+        try:
+            pv_parts = [int(x) for x in protect_data["version"].split(".")[:2]]
+            if pv_parts[0] < 8:
+                add("LOW","INTELLIGENCE",f"Jamf Protect version old: {protect_data['version']}",
+                    "Running an older Protect agent — may miss newer threat detection capabilities.",
+                    "Update Protect agent via Jamf policy.")
+        except (ValueError, TypeError, IndexError):
+            pass
+
+    # 13. Very high profile count — scoping sprawl
+    if len(profiles) > 30:
+        add("LOW","INTELLIGENCE",f"High profile count: {len(profiles)} profiles",
+            f"This device has {len(profiles)} config profiles applied — above the typical range. "
+            "Too many profiles can cause conflicts, slow login, and make troubleshooting difficult.",
+            "Review profile scoping in Jamf. Look for redundant or overlapping profiles.")
+
+    # 14. SUPER non-compliant + duplicate SUPER profiles — profiles ARE the cause
+    super_profiles = [n for n in profile_names if "super" in n.lower()]
+    if len(super_profiles) > 1 and super_compliant and "non" in super_compliant.lower():
+        add("HIGH","INTELLIGENCE","Duplicate SUPER profiles causing non-compliance",
+            f"Device has {len(super_profiles)} SUPER profiles AND is SUPER non-compliant. "
+            "Competing SUPER configurations almost certainly explain the non-compliance — "
+            "conflicting settings can prevent SUPER from running correctly.",
+            "Remove duplicate SUPER profiles first, then re-check SUPER compliance. "
+            "Keep only the correct scoped profile.")
+
+    # 15. MDM stale + Protect also offline = device physically gone or network dead
+    if (hours_stale and hours_stale > 336  # 14 days MDM stale
+            and protect_data and (protect_data.get("hours_offline") or 0) > 72):
+        add("HIGH","INTELLIGENCE","Device unreachable via MDM and Protect",
+            f"Both Jamf MDM (stale {round(hours_stale/24)}d) and Jamf Protect "
+            f"(offline {round((protect_data['hours_offline'] or 0)/24,1)}d) show the device as unreachable. "
+            "Device may be powered off, physically removed from network, or lost.",
+            "Locate device physically. If lost/stolen, escalate to Bob for remote lock/wipe.",
+            escalate=True)
 
     # ── Step 3: AI summary ────────────────────────────────────────
-    device_info = f"{gen.get('name','?')} ({hw.get('model','?')}, macOS {hw.get('os_version','?')}, {gen.get('site',{}).get('name','?') if isinstance(gen.get('site'),dict) else '?'})"
+    device_info = (f"{device_name} | {hw.get('model','?')} | "
+                   f"macOS {hw.get('os_version','?')} | "
+                   f"{'Apple Silicon' if apple_silicon else 'Intel'} | "
+                   f"Site: {gen.get('site',{}).get('name','?') if isinstance(gen.get('site'),dict) else '?'} | "
+                   f"Dept: {department or 'None'} | "
+                   f"User: {username or 'Unassigned'}")
 
-    if issues:
-        issues_text = "\n".join([f"[{i['severity']}][{i['category']}] {i['title']}: {i['detail']}" for i in issues])
-        ai_prompt = f"""You are an expert Jamf Pro administrator reviewing a conflict and security analysis for a managed Mac.
+    high_issues   = [i for i in issues if i["severity"]=="HIGH"]
+    medium_issues = [i for i in issues if i["severity"]=="MEDIUM"]
+    low_issues    = [i for i in issues if i["severity"]=="LOW"]
+    escalate_flag = any(i.get("escalate") for i in issues)
 
-Device: {device_info}
+    issues_text = "\n".join(
+        f"[{i['severity']}][{i['category']}] {i['title']}: {i['detail']}"
+        for i in issues
+    ) if issues else "No issues detected."
+
+    ai_prompt = f"""You are an expert Mac admin and Jamf Pro specialist for Three Rivers School District (TRSD), Oregon.
+TRSD environment: ~963 Macs, Jamf Pro MDM, Jamf Connect v3.14 (IdP auth), SUPER for macOS updates, 
+ConnectWise Control for remote, Jamf Protect endpoint security, Apple Silicon fleet transitioning from Intel.
+Bootstrap Token is critical for Apple Silicon — required for SUPER silent updates and FileVault key rotation.
+
+DEVICE: {device_info}
 Serial: {serial}
-Config profiles applied: {len(profiles)}
-Smart groups: {len(smart_groups)}
-Policy log entries: {len(policy_logs)}
+Stale: {f"{round(hours_stale/24,1)} days" if hours_stale else "Unknown"}
+FileVault: {"ON" if fv_on else "OFF"} | Bootstrap Token: {bt_status or "Unknown"}
+SIP: {sip or "Unknown"} | Managed: {gen_managed}
+SUPER: compliant={super_compliant or "?"} status={super_status or "?"} last_run={super_days_since and f"{round(super_days_since)}d ago" or super_last_run or "unknown"} deferrals={super_deferrals}
+Jamf Connect: version={jc_version or "not installed"} users={jc_users or "0"}
+Config profiles: {len(profiles)} | Smart groups: {len(smart_groups)} | Policy log entries: {len(policy_logs)}
+Protect: {f"connected={protect_data.get('connection')} offline={protect_data.get('hours_offline')}h insights_fail={protect_data.get('insights_fail')} open_alerts={len(protect_data.get('open_alerts',[]))}" if protect_data else "unavailable"}
 
-DETECTED ISSUES:
+DETECTED ISSUES ({len(high_issues)} HIGH · {len(medium_issues)} MEDIUM · {len(low_issues)} LOW):
 {issues_text}
 
-Write a concise 3-5 sentence technical summary for a help desk ticket. Cover: what the main problems are, likely root causes, and the most important next steps. Be specific and direct — the reader is a Mac admin."""
-    else:
-        ai_prompt = f"""Device {device_info} (serial {serial}) passed all conflict and security checks. {len(profiles)} profiles applied, {len(smart_groups)} smart groups, no issues detected. Write one sentence confirming this device looks healthy."""
+Write a sharp technical analysis for a field tech. Structure your response EXACTLY as:
 
-    ai_summary = "Analysis complete."
+DIAGNOSIS: [2-3 sentences — what is actually wrong and why, identifying root cause not just symptoms. Call out any cross-correlations that make issues worse in combination.]
+
+ACTIONS:
+1. [Most urgent action — be specific, include exact commands or Jamf steps]
+2. [Next action]
+3. [Next action]
+(up to 5 actions max — only include what's actually needed)
+
+{"ESCALATE TO BOB: [One sentence — what needs admin-level attention and why]" if escalate_flag else ""}
+
+Keep it concise and field-ready. A tech reading this should know exactly what to do next."""
+
+    ai_summary = "Analysis complete — see issues above."
     if ANTHROPIC_KEY:
         try:
             ai_resp = requests.post(
                 "https://api.anthropic.com/v1/messages",
-                headers={"x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                json={"model": "claude-haiku-4-5-20251001", "max_tokens": 300, "messages": [{"role": "user", "content": ai_prompt}]},
-                timeout=20,
+                headers={"x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","content-type":"application/json"},
+                json={"model":"claude-haiku-4-5-20251001","max_tokens":500,
+                      "messages":[{"role":"user","content":ai_prompt}]},
+                timeout=25,
             )
             if ai_resp.ok:
-                ai_summary = ai_resp.json().get("content", [{}])[0].get("text", "Analysis complete.")
+                ai_summary = ai_resp.json().get("content",[{}])[0].get("text","Analysis complete.")
         except Exception as e:
             log.warning("AI summary failed: %s", e)
 
@@ -1029,25 +1467,24 @@ Write a concise 3-5 sentence technical summary for a help desk ticket. Cover: wh
     high   = [i for i in issues if i["severity"] == "HIGH"]
     medium = [i for i in issues if i["severity"] == "MEDIUM"]
     low    = [i for i in issues if i["severity"] == "LOW"]
-
     return jsonify({
-        "serial":       serial,
-        "device_name":  gen.get("name","?"),
-        "model":        hw.get("model","?"),
-        "os_version":   hw.get("os_version","?"),
-        "site":         gen.get("site",{}).get("name","?") if isinstance(gen.get("site"),dict) else "?",
+        "serial":        serial,
+        "device_name":   device_name,
+        "model":         hw.get("model","?"),
+        "os_version":    hw.get("os_version","?"),
+        "site":          gen.get("site",{}).get("name","?") if isinstance(gen.get("site"),dict) else "?",
         "profile_count": len(profiles),
-        "group_count":  len(smart_groups),
-        "policy_count": len(policy_logs),
-        "issues":       issues,
-        "high_count":   len(high),
-        "medium_count": len(medium),
-        "low_count":    len(low),
-        "ai_summary":   ai_summary,
-        "profiles":     [{"name": p.get("displayName",""), "id": p.get("id"), "installed": p.get("lastInstalled")} for p in profiles],
-        "smart_groups": smart_groups,
-        "pending_mdm":  len(pending_all),
-        "protect":      protect_data,
+        "group_count":   len(smart_groups),
+        "policy_count":  len(policy_logs),
+        "issues":        issues,
+        "high_count":    len(high),
+        "medium_count":  len(medium),
+        "low_count":     len(low),
+        "ai_summary":    ai_summary,
+        "profiles":      [{"name":p.get("displayName",""),"id":p.get("id"),"installed":p.get("lastInstalled")} for p in profiles],
+        "smart_groups":  smart_groups,
+        "pending_mdm":   len(pending_all),
+        "protect":       protect_data,
     })
 
 @app.route("/api/fleet/warm", methods=["POST"])
@@ -1082,7 +1519,7 @@ def fleet_query():
         "filevault_off":     (lambda d: not d["filevault"],                                        "FileVault disabled"),
         "unmanaged":         (lambda d: not d["managed"],                                          "Not managed by Jamf"),
         "super_noncompliant":(lambda d: d["super_compliant"] and "non" in d["super_compliant"].lower(), "SUPER non-compliant"),
-        "jc_missing":        (lambda d: not d["jc_version"] or d["jc_version"] in ("","Does not exist"), "Jamf Connect not installed"),
+        "jc_no_users":       (lambda d: d.get("jc_users","") in ("","0"), "Jamf Connect — no users authenticated"),
         "all":               (lambda d: True,                                                      "All devices"),
     }
     if query == "protect_offline":
@@ -1189,10 +1626,36 @@ def edit_log(index):
 def escalate_to_slack():
     webhook = os.environ.get("SLACK_WEBHOOK_URL","")
     if not webhook: return jsonify({"error": "SLACK_WEBHOOK_URL not set"}), 503
-    text = (request.get_json(force=True, silent=True) or {}).get("text","")
+    payload = request.get_json(force=True, silent=True) or {}
+    # Accept both 'text' and 'message' keys for compatibility
+    text = payload.get("text","") or payload.get("message","")
     if not text: return jsonify({"error": "No text"}), 400
-    resp = requests.post(webhook, json={"text": text}, timeout=10)
-    return jsonify({"success": resp.status_code == 200})
+    try:
+        resp = requests.post(webhook, json={"text": text}, timeout=10)
+        return jsonify({"success": resp.status_code == 200})
+    except requests.exceptions.RequestException as e:
+        log.error("Slack webhook failed: %s", e)
+        return jsonify({"success": False, "error": str(e)}), 502
+
+@app.route("/api/config/client")
+@require_auth
+def client_config():
+    return jsonify({"connectwise_url": CONNECTWISE_URL, "jamf_url": JAMF_URL})
+
+@app.route("/api/device/<serial>/email", methods=["POST"])
+@require_auth
+def send_device_email(serial):
+    serial  = serial.upper().strip()
+    payload = request.get_json(force=True, silent=True) or {}
+    to      = payload.get("to","").strip()
+    subject = payload.get("subject","").strip()
+    body    = payload.get("body","").strip()
+    if not to or not subject or not body:
+        return jsonify({"error": "Missing to/subject/body"}), 400
+    import urllib.parse
+    mailto = f"mailto:{urllib.parse.quote(to)}?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+    write_audit("EMAIL_COMPOSED", request.user["display_name"], f"Email to {to} re: {serial}", request.remote_addr)
+    return jsonify({"success": True, "method": "mailto", "mailto": mailto})
 
 @app.errorhandler(500)
 def handle_500(e):
