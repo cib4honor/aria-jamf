@@ -22,11 +22,18 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).parent
 load_dotenv(BASE_DIR / ".env")
 
+import aria_audit_sqlite as audit_db
+
+# Log destination is overridable (ARIA_LOG_FILE) so the app is portable off
+# macOS — e.g. in a container where ~/Library/Logs doesn't exist. Defaults to
+# the original macOS LaunchAgent path; parent dir is created if missing.
+_log_path = Path(os.environ.get("ARIA_LOG_FILE") or os.path.expanduser("~/Library/Logs/aria_server.log"))
+_log_path.parent.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler(os.path.expanduser("~/Library/Logs/aria_server.log")),
+        logging.FileHandler(str(_log_path)),
         logging.StreamHandler()
     ]
 )
@@ -52,8 +59,37 @@ SESSION_HOURS   = int(os.environ.get("ARIA_SESSION_HOURS", 8))
 USERS_FILE      = BASE_DIR / "config" / "users.json"
 AUDIT_FILE      = BASE_DIR / "audit_log.json"
 LOG_FILE        = BASE_DIR / "handoff_log.json"
+TECH_AREAS_FILE = BASE_DIR / "config" / "tech_areas.json"
 CONNECTWISE_URL = os.environ.get("CONNECTWISE_URL","").rstrip("/")
 SMTP_FROM       = os.environ.get("SMTP_FROM","")
+
+# ── Tech area routing (config/tech_areas.json) ────────────────────
+_tech_areas_cache = {"mtime": 0, "data": {}}
+
+def load_tech_areas():
+    """Read tech_areas.json, cached by file mtime so edits apply without restart."""
+    try:
+        mtime = TECH_AREAS_FILE.stat().st_mtime
+        if mtime != _tech_areas_cache["mtime"]:
+            data = json.loads(TECH_AREAS_FILE.read_text())
+            data.pop("_comment", None)
+            _tech_areas_cache.update({"mtime": mtime, "data": data})
+    except Exception:
+        return {}
+    return _tech_areas_cache["data"]
+
+def assigned_techs(site_name):
+    """Return list of techs assigned to a Jamf site name, by keyword match."""
+    if not site_name:
+        return []
+    s = site_name.lower()
+    techs = []
+    for area in load_tech_areas().values():
+        if any(kw in s for kw in area.get("match", [])):
+            for t in area.get("techs", []):
+                if t not in techs:
+                    techs.append(t)
+    return techs
 
 # ── Rate limiting (in-memory) ─────────────────────────────────────
 _failed_logins = {}   # ip -> {"count": N, "lockout_until": timestamp}
@@ -132,20 +168,7 @@ def require_admin(f):
 
 # ── Audit log ─────────────────────────────────────────────────────
 def write_audit(action: str, tech: str, detail: str, ip: str = ""):
-    entries = []
-    if AUDIT_FILE.exists():
-        try:
-            entries = json.loads(AUDIT_FILE.read_text())
-        except Exception:
-            entries = []
-    entries.append({
-        "ts":     int(time.time() * 1000),
-        "action": action,
-        "tech":   tech,
-        "detail": detail,
-        "ip":     ip,
-    })
-    AUDIT_FILE.write_text(json.dumps(entries, indent=2))
+    audit_db.write_audit(action, tech, detail, ip)
     log.info("AUDIT: %s by %s — %s", action, tech, detail)
 
 # ── Jamf token cache ──────────────────────────────────────────────
@@ -377,16 +400,9 @@ def admin_reset_password(username):
 @app.route("/api/admin/audit")
 @require_admin
 def admin_audit_log():
-    entries = []
-    if AUDIT_FILE.exists():
-        try:
-            entries = json.loads(AUDIT_FILE.read_text())
-        except Exception:
-            entries = []
     limit  = int(request.args.get("limit", 100))
     offset = int(request.args.get("offset", 0))
-    total  = len(entries)
-    page   = list(reversed(entries))[offset:offset+limit]
+    page, total = audit_db.read_audit(limit, offset)
     return jsonify({"entries": page, "total": total})
 
 # ── Chat ──────────────────────────────────────────────────────────
@@ -452,6 +468,7 @@ def get_device(serial):
         "managed": gen.get("remote_management", {}).get("managed"),
         "supervised": gen.get("supervised"),
         "site": gen.get("site", {}).get("name"),
+        "assigned_techs": assigned_techs(gen.get("site", {}).get("name")),
         "department": loc.get("department") or "Missing Dept.",
         "username": loc.get("username") or gen.get("username"),
         "realname": loc.get("realname") or loc.get("real_name"),
@@ -493,12 +510,21 @@ def get_user_devices(username):
 @require_auth
 def flush_mdm(serial):
     serial = serial.upper().strip()
-    cid    = get_computer_id(serial)
+    try:
+        cid = get_computer_id(serial)
+    except requests.exceptions.ConnectionError:
+        return jsonify({"error": "Cannot reach Jamf Pro — check network connectivity on the ARIA server."}), 503
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Jamf Pro timed out — try again in a moment."}), 504
     if not cid: return jsonify({"error": f"Device not found: {serial}"}), 404
     try:
         result = send_mdm_command(cid, "BlankPush")
         write_audit("MDM_FLUSH", request.user["display_name"], f"Flush MDM → {serial}", request.remote_addr)
         return jsonify(result)
+    except requests.exceptions.ConnectionError:
+        return jsonify({"error": "Lost connection to Jamf Pro mid-request — check network and try again."}), 503
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Jamf Pro timed out sending BlankPush — try again."}), 504
     except requests.exceptions.HTTPError as e:
         if e.response.status_code in (401, 403):
             return jsonify({"success": False, "note": "BlankPush not authorized in your Jamf API role."}), 200
@@ -508,22 +534,33 @@ def flush_mdm(serial):
 @require_auth
 def restart_device(serial):
     serial = serial.upper().strip()
-    cid    = get_computer_id(serial)
+    try:
+        cid = get_computer_id(serial)
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        return jsonify({"error": "Cannot reach Jamf Pro — check network connectivity on the ARIA server."}), 503
     if not cid: return jsonify({"error": f"Device not found: {serial}"}), 404
-    result = send_mdm_command(cid, "RestartNow")
-    write_audit("MDM_RESTART", request.user["display_name"], f"Restart → {serial}", request.remote_addr)
-    return jsonify(result)
+    try:
+        result = send_mdm_command(cid, "RestartNow")
+        write_audit("MDM_RESTART", request.user["display_name"], f"Restart → {serial}", request.remote_addr)
+        return jsonify(result)
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        return jsonify({"error": "Lost connection to Jamf Pro — try again."}), 503
 
 @app.route("/api/device/<serial>/lock", methods=["POST"])
 @require_auth
 def lock_device(serial):
     serial = serial.upper().strip()
-    cid    = get_computer_id(serial)
+    try:
+        cid = get_computer_id(serial)
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        return jsonify({"error": "Cannot reach Jamf Pro — check network connectivity on the ARIA server."}), 503
     if not cid: return jsonify({"error": f"Device not found: {serial}"}), 404
     try:
         result = send_mdm_command(cid, "DeviceLock")
         write_audit("MDM_LOCK", request.user["display_name"], f"LOCK → {serial}", request.remote_addr)
         return jsonify(result)
+    except requests.exceptions.ConnectionError:
+        return jsonify({"error": "Lost connection to Jamf Pro — try again."}), 503
     except requests.exceptions.HTTPError as e:
         if e.response.status_code in (401, 403):
             return jsonify({"success": False, "note": "Lock not authorized in your Jamf API role."}), 200
@@ -1503,6 +1540,12 @@ def fleet_sites():
     devices = fetch_fleet()
     sites   = sorted(set((d.get("general",{}).get("site") or {}).get("name","") for d in devices) - {""})
     return jsonify({"sites": sites})
+
+@app.route("/api/config/tech-areas")
+@require_auth
+def get_tech_areas():
+    """Site-to-tech routing table from config/tech_areas.json."""
+    return jsonify({"areas": load_tech_areas()})
 
 @app.route("/api/fleet/query")
 @require_auth

@@ -21,10 +21,8 @@ USERS_FILE = Path(__file__).parent / "config" / "users.json"
 
 TECH_DISPLAY = {
     "bob":     "Bob Giordano",
-    "robert":  "Robert Saunders",
     "scott":   "Scott Midkiff",
     "deanna":  "Deanna McLean",
-    "ellen":   "Ellen Paul",
     "michal":  "Michal Dudzinski",
     "danica":  "Danica Gibson",
 }

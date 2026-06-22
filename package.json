@@ -1,0 +1,29 @@
+{
+  "name": "aria",
+  "version": "1.0.0",
+  "description": "ARIA (Automated Resolution & Incident Assistant) is a self-hosted, AI-powered troubleshooting tool for Mac administrators running Jamf Pro. It gives your IT team a conversational interface backed by live Jamf data, fleet-wide health queries, MDM actions, and AI-generated ticket summaries — all running on your own hardware with your own API key.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cib4honor/aria-jamf.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/cib4honor/aria-jamf/issues"
+  },
+  "homepage": "https://github.com/cib4honor/aria-jamf#readme",
+  "dependencies": {
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/ios": "^8.3.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "appId": "local.trsd.aria",
+  "appName": "ARIA",
+  "webDir": "www",
+  "server": {
+    "url": "https://aria.trsd.local:5001",
+    "cleartext": false,
+    "androidScheme": "https"
+  }
+}

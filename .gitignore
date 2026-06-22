@@ -18,7 +18,20 @@ build/
 # ── Logs & runtime data ───────────────────────────────────────────
 *.log
 audit_log.json
+audit_log.json*
 handoff_log.json
+
+# ── Databases (users, audit log — NEVER push to GitHub) ──────────
+aria.db
+*.sqlite
+*.sqlite3
+
+# ── Certs (also covered by *.pem above; explicit per backup spec) ─
+aria-cert.pem
+aria-key.pem
+
+# ── Node / JS build artifacts (keep automated backups lean) ──────
+node_modules/
 
 # ── User data (contains hashed passwords) ────────────────────────
 config/users.json

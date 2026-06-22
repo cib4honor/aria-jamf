@@ -1,0 +1,7 @@
+{
+  "name": "example",
+  "version": "1.0.0",
+  "server": {
+    "url": "https://aria.trsd.local:5001"
+  }
+}

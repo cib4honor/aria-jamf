@@ -765,6 +765,7 @@ function renderDeviceCard(d) {
     <div class="drow"><span class="dk">Serial</span><span class="dv">${d.serial}</span></div>
     <div class="drow"><span class="dk">Last check-in</span><span class="dv" style="color:${cc}">${checkinLabel(d.last_check_in)}</span></div>
     <div class="drow"><span class="dk">Site</span><span class="dv">${d.site||"—"}</span></div>
+    <div class="drow"><span class="dk">Tech</span><span class="dv">${(d.assigned_techs&&d.assigned_techs.length)?d.assigned_techs.join(", "):"—"}</span></div>
     <div class="drow"><span class="dk">Dept</span><span class="dv">${d.department||"—"}</span></div>
     <div class="drow"><span class="dk">FileVault</span><span class="dv ${d.filevault_enabled===false?"warn":d.filevault_enabled?"ok":""}">${d.filevault_enabled?`✓ On (${d.filevault_users} users)`:"✗ OFF"}</span></div>
     <div class="drow"><span class="dk">Managed</span><span class="dv ${d.managed?"ok":"warn"}">${d.managed?"✓ Yes":"✗ No"}</span></div>
@@ -862,8 +863,46 @@ async function sendAction(action, label) {  if(!deviceData) return;
     const r = await fetch(`/api/device/${deviceData.serial}/${action}`, {method:"POST", headers: authHeaders()});
     if(r.status===401){switchUser();return;}
     const d = await r.json();
-    appendMessage("assistant", d.success ? `✓ ${label} sent to ${deviceData.name||deviceData.serial}.` : `⚠ ${label}: ${d.note||d.error||"Check Jamf Pro."}`);
+    if(d.success) {
+      appendMessage("assistant", `✓ ${label} sent to ${deviceData.name||deviceData.serial}.`);
+      // Auto-refresh device panel after Blank Push
+      if(action === "flush-mdm") startBlankPushRefresh(deviceData.serial);
+    } else {
+      appendMessage("assistant", `⚠ ${label}: ${d.note||d.error||"Check Jamf Pro."}`);
+    }
   } catch { appendMessage("assistant", `⚠ Could not send ${label} — backend error.`); }
+}
+
+// ── Blank Push auto-refresh with countdown ──
+let blankPushTimer = null;
+function startBlankPushRefresh(serial) {
+  // Cancel any existing countdown
+  if(blankPushTimer) { clearInterval(blankPushTimer); blankPushTimer = null; }
+  let seconds = 30;
+  const msgId = "bp-refresh-" + Date.now();
+  appendMessage("assistant", `⏳ Auto-refreshing device in <span id="${msgId}">30</span>s to show updated check-in...`, true);
+  blankPushTimer = setInterval(async () => {
+    seconds--;
+    const el = document.getElementById(msgId);
+    if(el) el.textContent = seconds;
+    if(seconds <= 0) {
+      clearInterval(blankPushTimer);
+      blankPushTimer = null;
+      if(el) el.parentElement.innerHTML = "🔄 Refreshing device data now...";
+      try {
+        const r = await fetch(`/api/device/${serial}`, {headers: authHeaders()});
+        if(r.ok) {
+          deviceData = await r.json();
+          renderDeviceCard(deviceData);
+          appendMessage("assistant", `✓ Device panel refreshed — check-in data updated.`);
+        } else {
+          appendMessage("assistant", `⚠ Could not refresh device — try searching again.`);
+        }
+      } catch {
+        appendMessage("assistant", `⚠ Refresh failed — try looking up the device again.`);
+      }
+    }
+  }, 1000);
 }
 </script>
 
@@ -995,16 +1034,17 @@ Name: ${deviceData.name||"unknown"} | Model: ${deviceData.model||"unknown"} (${d
 macOS: ${deviceData.os_version||"unknown"} | Last check-in: ${h!==null?(h<24?`${h}h ago`:`${Math.round(h/24)}d ago`):"unknown"}
 FileVault: ${deviceData.filevault_enabled?"Enabled":"DISABLED"} | Managed: ${deviceData.managed?"Yes":"No"}
 User: ${deviceData.username||"none"} | Site: ${deviceData.site||"unknown"} | Dept: ${deviceData.department||"unknown"}
+Assigned tech: ${(deviceData.assigned_techs&&deviceData.assigned_techs.length)?deviceData.assigned_techs.join(", "):"unknown"}
 SUPER: ${ea["SUPER Compliant"]||"unknown"} | ${ea["SUPER status"]||"unknown"} | Last run: ${ea["Last Super Run"]||"unknown"}
 Jamf Connect: ${ea["Jamf Connect Version"]||"unknown"} | Users: ${ea["Jamf Connect Users"]||"unknown"}
 Network: ${ea["Network Interface Details"]||"unknown"}
 [END JAMF DATA]\n\n`;
 }
 
-function appendMessage(role,text){
+function appendMessage(role,text,isHtml=false){
   document.getElementById("empty-state")?.remove();
   const wrap=document.createElement("div");wrap.className=`msg-wrap ${role==="user"?"user":""}`;
-  wrap.innerHTML=`<div class="avatar ${role==="user"?"tech":"ai"}">${role==="user"?techName.charAt(0).toUpperCase():"A"}</div><div class="bubble ${role==="user"?"user":"ai"}">${text.replace(/</g,"&lt;")}</div>`;
+  wrap.innerHTML=`<div class="avatar ${role==="user"?"tech":"ai"}">${role==="user"?techName.charAt(0).toUpperCase():"A"}</div><div class="bubble ${role==="user"?"user":"ai"}">${isHtml?text:text.replace(/</g,"&lt;")}</div>`;
   document.getElementById("messages").appendChild(wrap);wrap.scrollIntoView({behavior:"smooth",block:"end"});
 }
 function showTyping(){const el=document.createElement("div");el.className="typing-wrap";el.id="typing";el.innerHTML=`<div class="avatar ai">A</div><div class="typing-bubble"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div>`;document.getElementById("messages").appendChild(el);el.scrollIntoView({behavior:"smooth",block:"end"});}
@@ -1464,12 +1504,37 @@ function launchConnectWise(deviceName){
   appendMessage("assistant", `🖥 Opening ConnectWise remote session for ${deviceName}...`);
 }
 
+function techEmail(name){
+  // TRSD pattern: first.last@threerivers.k12.or.us
+  const p = name.trim().toLowerCase().split(/\s+/);
+  return p[0] + "." + p[p.length-1] + "@threerivers.k12.or.us";
+}
+
+function setEmailTo(addr){
+  document.getElementById("email-to").value = addr;
+  document.getElementById("email-subject").focus();
+}
+
 function openEmailModal(email, realname, deviceName, serial){
   emailSerial = serial;
   document.getElementById("email-modal-title").textContent = `✉ Email ${realname || "User"}`;
   document.getElementById("email-to").value = email || "";
   document.getElementById("email-subject").value = `Regarding your Mac — ${deviceName}`;
   document.getElementById("email-body").value = "";
+  // Assigned-tech chips — one tap fills the TO field
+  const chipBox = document.getElementById("email-tech-chips");
+  const techs = (deviceData && deviceData.assigned_techs) || [];
+  if(chipBox){
+    if(techs.length){
+      chipBox.innerHTML = techs.map(t =>
+        `<button type="button" onclick="setEmailTo('${techEmail(t)}')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--green2);font-size:11px;font-family:var(--mono);cursor:pointer">👤 ${t}</button>`
+      ).join("");
+      chipBox.style.display = "flex";
+    } else {
+      chipBox.innerHTML = "";
+      chipBox.style.display = "none";
+    }
+  }
   document.getElementById("email-modal").classList.add("visible");
   // Focus the body if email is pre-filled, otherwise focus the to field
   setTimeout(()=>{
@@ -1544,6 +1609,7 @@ async function sendEmail(){
         <label>TO</label>
         <input type="text" id="email-to" placeholder="user@threerivers.k12.or.us">
       </div>
+      <div id="email-tech-chips" style="display:none;gap:8px;flex-wrap:wrap;margin:-4px 0 12px 0"></div>
       <div class="email-field">
         <label>SUBJECT</label>
         <input type="text" id="email-subject" placeholder="Regarding your Mac...">

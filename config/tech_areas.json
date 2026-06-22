@@ -1,0 +1,21 @@
+{
+  "_comment": "Site-to-tech routing. Edit techs arrays when assignments change. 'match' = lowercase substrings matched against the Jamf site name.",
+  "MZ":   { "name": "Manzanita",       "match": ["manzanita"],                          "techs": ["Deanna McLean"] },
+  "FL":   { "name": "Fleming",         "match": ["fleming"],                            "techs": ["Deanna McLean"] },
+  "NV":   { "name": "North Valley",    "match": ["north valley"],                       "techs": ["Deanna McLean"] },
+  "SOSA": { "name": "SOSA",            "match": ["sosa", "southern oregon success"],    "techs": ["Deanna McLean"] },
+  "FV":   { "name": "Ft. Vannoy",      "match": ["vannoy"],                             "techs": ["Danica Gibson", "Deanna McLean", "Michal Dudzinski"] },
+  "IV":   { "name": "Illinois Valley", "match": ["illinois valley"],                    "techs": ["Scott Midkiff"] },
+  "LB":   { "name": "Lorna Byrne",     "match": ["lorna byrne"],                        "techs": ["Scott Midkiff"] },
+  "EV":   { "name": "Evergreen",       "match": ["evergreen"],                          "techs": ["Scott Midkiff"] },
+  "MD":   { "name": "Madrona",         "match": ["madrona"],                            "techs": ["Scott Midkiff", "Michal Dudzinski"] },
+  "LS":   { "name": "Lincoln Savage",  "match": ["lincoln savage"],                     "techs": ["Scott Midkiff"] },
+  "MT":   { "name": "Maintenance",     "match": ["maintenance"],                        "techs": ["Scott Midkiff"] },
+  "FS":   { "name": "Food Service",    "match": ["food service", "fs warehouse"],       "techs": ["Scott Midkiff"] },
+  "JP":   { "name": "Jerome Prairie",  "match": ["jerome prairie"],                     "techs": ["Scott Midkiff"] },
+  "AG":   { "name": "Applegate",       "match": ["applegate"],                          "techs": ["Michal Dudzinski"] },
+  "WI":   { "name": "Williams",        "match": ["williams"],                           "techs": ["Michal Dudzinski"] },
+  "HV":   { "name": "Hidden Valley",   "match": ["hidden valley"],                      "techs": ["Michal Dudzinski"] },
+  "DO":   { "name": "District Office", "match": ["district office"],                    "techs": ["Michal Dudzinski"] },
+  "FR":   { "name": "Fruitdale",       "match": ["fruitdale"],                          "techs": ["Michal Dudzinski"] }
+}

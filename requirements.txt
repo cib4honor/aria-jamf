@@ -1,4 +1,23 @@
-flask>=3.0.0
-flask-cors>=4.0.0
-requests>=2.31.0
-python-dotenv>=1.0.0
+# ARIA runtime dependencies — pinned to versions verified in the venv (Python 3.9.6).
+# Regenerate the baseline with: ./venv/bin/python -m pip freeze
+#
+# Only the packages aria_server.py actually imports, plus reportlab/pillow which
+# back the PDF/session-summary feature (make_pdf.py) bundled in the image.
+
+# Web framework + CORS
+Flask==3.1.3
+flask-cors==6.0.2
+
+# HTTP client (Jamf API, Anthropic API)
+requests==2.32.5
+
+# Auth: bcrypt password hashing + PyJWT session tokens
+bcrypt==5.0.0
+PyJWT==2.12.1
+
+# Config loading (.env)
+python-dotenv==1.2.1
+
+# PDF / report generation (make_pdf.py)
+reportlab==4.4.10
+pillow==11.3.0

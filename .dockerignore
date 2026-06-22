@@ -1,0 +1,41 @@
+# Never bake secrets, data, or the host venv into the image.
+# Config + data are provided at runtime via bind-mount volumes (see docker-compose.yml).
+
+# Host virtualenv — deps come from requirements.txt instead
+venv/
+
+# Secrets / config (mounted at runtime, never baked)
+.env
+.env.*
+!.env.example
+aria.env.example
+*.pem
+*.key
+
+# Persistent data (mounted as volumes)
+aria.db
+audit_log.json
+handoff_log.json
+config/
+
+# Capacitor / mobile wrapper — not part of the Flask server
+ios/
+www/
+node_modules/
+package.json
+package-lock.json
+capacitor.config.json
+mkcert
+
+# Backup / alternate server copies
+aria_server_broken.py
+aria_server_clean.py
+aria_server_github.py
+
+# Repo / OS / Python cruft
+.git/
+.gitignore
+.DS_Store
+__pycache__/
+*.pyc
+docs/

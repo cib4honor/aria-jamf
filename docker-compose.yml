@@ -1,0 +1,93 @@
+# ARIA — Docker Compose
+#
+# This container is now the sole ARIA instance, bound to host port 5001.
+# The legacy launchd service (com.trsd.aria) has been booted out and disabled.
+# restart: unless-stopped + Colima auto-start at login bring ARIA back on reboot.
+
+services:
+  aria:
+    build: .
+    image: aria:latest
+    container_name: aria
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    # .env is also loaded into the container environment as a convenience;
+    # the app itself reads /app/.env via load_dotenv (mounted below).
+    env_file:
+      - .env
+    volumes:
+      # --- config & secrets: mounted read-only, NEVER baked into the image ---
+      - ./.env:/app/.env:ro
+      - ./aria-cert.pem:/app/aria-cert.pem:ro
+      - ./aria-key.pem:/app/aria-key.pem:ro
+      # --- persistent data: read-write so writes survive container restarts ---
+      - ./aria.db:/app/aria.db
+      - ./config:/app/config
+      - ./handoff_log.json:/app/handoff_log.json
+
+# =====================================================================
+# Watershed monitoring stack — Three Rivers School District fleet monitoring.
+# Configs and data live under /Users/bob/watershed/ (outside the ARIA app dir).
+# =====================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=1y
+      - --web.enable-lifecycle
+    volumes:
+      - /Users/bob/watershed/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /Users/bob/watershed/prometheus/data:/prometheus
+    ports:
+      - "9090:9090"
+    # Resolve host.docker.internal to the host (needed for the watershed-server
+    # node_exporter scrape job; not auto-provided on Colima).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    # Admin credentials supplied via env vars (GF_SECURITY_ADMIN_USER/PASSWORD).
+    env_file:
+      - /Users/bob/watershed/grafana/grafana.env
+    volumes:
+      - /Users/bob/watershed/grafana/data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - /Users/bob/watershed/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - /Users/bob/watershed/alertmanager/data:/alertmanager
+    ports:
+      - "9093:9093"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
