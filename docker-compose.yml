@@ -41,6 +41,8 @@ services:
       - --web.enable-lifecycle
     volumes:
       - /Users/bob/watershed/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /Users/bob/watershed/prometheus/rules:/etc/prometheus/rules:ro
+      - /Users/bob/watershed/prometheus/targets:/etc/prometheus/targets:ro
       - /Users/bob/watershed/prometheus/data:/prometheus
     ports:
       - "9090:9090"
@@ -82,6 +84,7 @@ services:
       - --storage.path=/alertmanager
     volumes:
       - /Users/bob/watershed/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - /Users/bob/watershed/alertmanager/smtp_password:/etc/alertmanager/smtp_password:ro
       - /Users/bob/watershed/alertmanager/data:/alertmanager
     ports:
       - "9093:9093"
@@ -91,3 +94,29 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  # Jamf service-discovery exporter — pulls healthy node_exporter Macs from the
+  # Jamf Pro API every 5 min and writes /etc/prometheus/targets/fleet.json,
+  # which Prometheus' jamf-fleet job scrapes. Reads Jamf creds from ARIA's .env
+  # (mounted ro); writes only into the shared targets dir.
+  jamf-exporter:
+    build:
+      context: /Users/bob/watershed/jamf_exporter
+    image: watershed-jamf-exporter:latest
+    container_name: jamf-exporter
+    restart: unless-stopped
+    environment:
+      - ARIA_ENV_FILE=/app/.env
+      - TARGETS_FILE=/targets/fleet.json
+      - EA_NAME=Watershed Node Exporter
+      - INTERVAL=300
+    volumes:
+      - ./.env:/app/.env:ro
+      - /Users/bob/watershed/prometheus/targets:/targets
+    healthcheck:
+      # Healthy once the discovery file has been written.
+      test: ["CMD-SHELL", "test -f /targets/fleet.json"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
