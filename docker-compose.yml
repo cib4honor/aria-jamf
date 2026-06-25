@@ -66,6 +66,10 @@ services:
       - /Users/bob/watershed/grafana/grafana.env
     volumes:
       - /Users/bob/watershed/grafana/data:/var/lib/grafana
+      # Datasource + dashboard provider configs (auto-loaded on start).
+      - /Users/bob/watershed/grafana/provisioning:/etc/grafana/provisioning:ro
+      # Dashboard JSON models referenced by the file provider above.
+      - /Users/bob/watershed/grafana/dashboards:/etc/grafana/dashboards:ro
     ports:
       - "3000:3000"
     healthcheck:
@@ -95,28 +99,41 @@ services:
       retries: 5
       start_period: 30s
 
-  # Jamf service-discovery exporter — pulls healthy node_exporter Macs from the
-  # Jamf Pro API every 5 min and writes /etc/prometheus/targets/fleet.json,
-  # which Prometheus' jamf-fleet job scrapes. Reads Jamf creds from ARIA's .env
-  # (mounted ro); writes only into the shared targets dir.
-  jamf-exporter:
-    build:
-      context: /Users/bob/watershed/jamf_exporter
-    image: watershed-jamf-exporter:latest
-    container_name: jamf-exporter
-    restart: unless-stopped
-    environment:
-      - ARIA_ENV_FILE=/app/.env
-      - TARGETS_FILE=/targets/fleet.json
-      - EA_NAME=Watershed Node Exporter
-      - INTERVAL=300
-    volumes:
-      - ./.env:/app/.env:ro
-      - /Users/bob/watershed/prometheus/targets:/targets
-    healthcheck:
-      # Healthy once the discovery file has been written.
-      test: ["CMD-SHELL", "test -f /targets/fleet.json"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 90s
+  # Jamf service-discovery + metrics exporter — DISABLED in Docker.
+  #
+  # The district firewall blocks the Colima VM's NAT egress, so the container
+  # cannot reach the Jamf cloud. It now runs NATIVELY on the Mac Studio host as
+  # a LaunchDaemon (com.watershed.jamf_exporter), which reaches Jamf fine and
+  # writes the same fleet.json into prometheus/targets/. Prometheus scrapes its
+  # metrics at host.docker.internal:9101 (see prometheus.yml). Source of truth
+  # for the native runtime: watershed/jamf_exporter/{watershed-jamf-exporter.sh,
+  # com.watershed.jamf_exporter.plist}.
+  #
+  # jamf-exporter:
+  #   build:
+  #     context: /Users/bob/watershed/jamf_exporter
+  #   image: watershed-jamf-exporter:latest
+  #   container_name: jamf-exporter
+  #   restart: unless-stopped
+  #   environment:
+  #     - ARIA_ENV_FILE=/app/.env
+  #     - TARGETS_FILE=/targets/fleet.json
+  #     - EA_NAME=Watershed Node Exporter
+  #     - INTERVAL=300
+  #     - METRICS_PORT=9101
+  #     - POLICY_FAILURES_ENABLED=true
+  #     - POLICY_LOOKBACK_DAYS=7
+  #     - SUPER_COMPLIANT_EA=
+  #     - SUPER_DEFERRALS_EA=
+  #   volumes:
+  #     - ./.env:/app/.env:ro
+  #     - /Users/bob/watershed/prometheus/targets:/targets
+  #     - /Users/bob/watershed/jamf_exporter/jamf_sd.py:/app/jamf_sd.py:ro
+  #   ports:
+  #     - "9101:9101"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "test -f /targets/fleet.json"]
+  #     interval: 60s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 90s
