@@ -54,3 +54,6 @@ aria_server_github.py
 
 # ── LaunchAgent plist (machine-specific) ─────────────────────────
 com.trsd.aria.plist
+
+# ── Claude Code local settings (machine-specific; may embed secrets) ──
+.claude/settings.local.json
